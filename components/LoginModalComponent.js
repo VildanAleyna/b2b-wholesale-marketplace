@@ -35,7 +35,7 @@ const LoginModalComponent = ({ isVisible, onClose, onNavigateToRegister }) => {
             <View style={styles.modalContent}>
               <Text style={styles.modalTitle}>Giriş Yap</Text>
               <TextInput 
-                placeholder="Kullanıcı Adı" 
+                placeholder="E-posta veya personel kullanıcı adı" 
                 value={username}
                 onChangeText={setUsername}
                 style={styles.input} 

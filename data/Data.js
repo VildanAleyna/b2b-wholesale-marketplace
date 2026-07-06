@@ -1,14 +1,25 @@
 import axios from 'axios';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Platform } from 'react-native';
 
-// API URL'sini tanımlayın
-const API_URL = 'http://localhost:3000'; // Kendi bilgisayarınızın yerel IP'sini girin (örn: 'http://192.168.1.100:3000')
+const getDefaultApiUrl = () => {
+    if (Platform.OS === 'android') {
+        return 'http://10.0.2.2:3000';
+    }
+
+    return 'http://localhost:3000';
+};
+
+export const API_URL = process.env.EXPO_PUBLIC_API_URL || getDefaultApiUrl();
+
+export const apiClient = axios.create({
+    baseURL: API_URL,
+    timeout: 15000,
+});
 
 // Ürünleri almak için fonksiyon
 export const fetchProducts = async () => {
     try {
-        const response = await axios.get(`${API_URL}/products`);
-        console.log('Fetched products:', response.data); // Verileri kontrol etmek için log ekliyoruz
+        const response = await apiClient.get('/products');
         return response.data;
     } catch (error) {
         console.error('Error fetching products:', error);
@@ -19,7 +30,7 @@ export const fetchProducts = async () => {
 // Kullanıcının ürünlerini almak için fonksiyon
 export const fetchUserProducts = async (userId) => {
     try {
-        const response = await axios.get(`${API_URL}/users/${userId}/products`);
+        const response = await apiClient.get(`/users/${userId}/products`);
         return response.data;
     } catch (error) {
         console.error('Kullanıcının ürünleri alınamadı:', error);
@@ -28,21 +39,10 @@ export const fetchUserProducts = async (userId) => {
 };
 
 
-// Kullanıcıları almak için fonksiyon
-export const fetchUsers = async () => {
-    try {
-        const response = await axios.get(`${API_URL}/users`);
-        return response.data;
-    } catch (error) {
-        console.error('Kullanıcılar alınamadı:', error);
-        return [];
-    }
-};
-
 // Kategorileri almak için fonksiyon
 export const fetchCategories = async () => {
     try {
-        const response = await axios.get(`${API_URL}/categories`);
+        const response = await apiClient.get('/categories');
         return response.data;
     } catch (error) {
         console.error('Kategoriler alınamadı:', error);
@@ -53,7 +53,7 @@ export const fetchCategories = async () => {
 // Modelleri almak için fonksiyon
 export const fetchModels = async () => {
     try {
-        const response = await axios.get(`${API_URL}/models`);
+        const response = await apiClient.get('/models');
         return response.data;
     } catch (error) {
         console.error('Modeller alınamadı:', error);
@@ -64,7 +64,7 @@ export const fetchModels = async () => {
 // Markaları almak için fonksiyon
 export const fetchBrands = async () => {
     try {
-        const response = await axios.get(`${API_URL}/brands`);
+        const response = await apiClient.get('/brands');
         return response.data;
     } catch (error) {
         console.error('Markalar alınamadı:', error);
@@ -75,7 +75,7 @@ export const fetchBrands = async () => {
 // Yeni ürün eklemek için fonksiyon
 export const addProduct = async (product) => {
     try {
-        const response = await axios.post(`${API_URL}/products`, product);
+        const response = await apiClient.post('/products', product);
         return response.data;
     } catch (error) {
         console.error('Ürün eklenemedi:', error);
@@ -86,7 +86,7 @@ export const addProduct = async (product) => {
 // Ürünü güncellemek için fonksiyon
 export const updateProduct = async (productId, update) => {
     try {
-        const response = await axios.put(`${API_URL}/products/${productId}`, update);
+        const response = await apiClient.put(`/products/${productId}`, update);
         return response.data;
     } catch (error) {
         console.error('Ürün güncellenemedi:', error);
@@ -97,7 +97,7 @@ export const updateProduct = async (productId, update) => {
 // Ürünü silmek için fonksiyon
 export const deleteProduct = async (productId) => {
     try {
-        const response = await axios.delete(`${API_URL}/products/${productId}`);
+        const response = await apiClient.delete(`/products/${productId}`);
         return response.data;
     } catch (error) {
         console.error('Ürün silinemedi:', error);
@@ -105,10 +105,16 @@ export const deleteProduct = async (productId) => {
     }
 };
 
+export const deleteProductById = deleteProduct;
+
+export const updateProductInventory = async (productId, inventory) => {
+    return updateProduct(productId, inventory);
+};
+
 // Kategori eklemek için fonksiyon
 export const addCategory = async (category) => {
     try {
-        const response = await axios.post(`${API_URL}/categories`, category);
+        const response = await apiClient.post('/categories', category);
         return response.data;
     } catch (error) {
         console.error('Kategori eklenemedi:', error);
@@ -119,7 +125,7 @@ export const addCategory = async (category) => {
 // Model eklemek için fonksiyon
 export const addModel = async (model) => {
     try {
-        const response = await axios.post(`${API_URL}/models`, model);
+        const response = await apiClient.post('/models', model);
         return response.data;
     } catch (error) {
         console.error('Model eklenemedi:', error);
@@ -130,7 +136,7 @@ export const addModel = async (model) => {
 // Marka eklemek için fonksiyon
 export const addBrand = async (brand) => {
     try {
-        const response = await axios.post(`${API_URL}/brands`, brand);
+        const response = await apiClient.post('/brands', brand);
         return response.data;
     } catch (error) {
         console.error('Marka eklenemedi:', error);
@@ -141,7 +147,7 @@ export const addBrand = async (brand) => {
 // Belirli bir ürünü ID ile almak için fonksiyon
 export const fetchProductById = async (productId) => {
     try {
-        const response = await axios.get(`${API_URL}/products/${productId}`);
+        const response = await apiClient.get(`/products/${productId}`);
         return response.data;
     } catch (error) {
         console.error('Ürün alınamadı:', error);
@@ -152,7 +158,7 @@ export const fetchProductById = async (productId) => {
 // Belirli bir kullanıcıyı ID ile almak için fonksiyon
 export const fetchUserById = async (userId) => {
     try {
-        const response = await axios.get(`${API_URL}/users/${userId}`);
+        const response = await apiClient.get(`/users/${userId}`);
         return response.data;
     } catch (error) {
         console.error('Kullanıcı alınamadı:', error);
@@ -163,7 +169,7 @@ export const fetchUserById = async (userId) => {
 // Belirli bir kategoriyi ID ile almak için fonksiyon
 export const fetchCategoryById = async (categoryId) => {
     try {
-        const response = await axios.get(`${API_URL}/categories/${categoryId}`);
+        const response = await apiClient.get(`/categories/${categoryId}`);
         return response.data;
     } catch (error) {
         console.error('Kategori alınamadı:', error);
@@ -174,7 +180,7 @@ export const fetchCategoryById = async (categoryId) => {
 // Belirli bir modeli ID ile almak için fonksiyon
 export const fetchModelById = async (modelId) => {
     try {
-        const response = await axios.get(`${API_URL}/models/${modelId}`);
+        const response = await apiClient.get(`/models/${modelId}`);
         return response.data;
     } catch (error) {
         console.error('Model alınamadı:', error);
@@ -185,7 +191,7 @@ export const fetchModelById = async (modelId) => {
 // Belirli bir markayı ID ile almak için fonksiyon
 export const fetchBrandById = async (brandId) => {
     try {
-        const response = await axios.get(`${API_URL}/brands/${brandId}`);
+        const response = await apiClient.get(`/brands/${brandId}`);
         return response.data;
     } catch (error) {
         console.error('Marka alınamadı:', error);
@@ -200,7 +206,7 @@ export const removeFavorite = async (productId, user, setUser) => {
 
         try {
             // Favorileri veritabanından sil
-            const response = await axios.put(`${API_URL}/users/${user._id}/favorites/remove`, {
+            const response = await apiClient.put(`/users/${user._id}/favorites/remove`, {
                 productId: productId,
             });
 
@@ -208,7 +214,6 @@ export const removeFavorite = async (productId, user, setUser) => {
                 throw new Error('Favorileri silme hatası');
             }
 
-            await AsyncStorage.setItem('user', JSON.stringify({ ...user, favorites: updatedFavorites })); // Güncellenmiş favorileri AsyncStorage'a kaydeder
         } catch (error) {
             console.error("Favorileri silme hatası:", error); // Favorileri kaydederken hata oluşursa, konsola hata mesajı yazar
         }
@@ -222,7 +227,7 @@ export const addFavorite = async (productId, user, setUser) => {
 
         try {
             // Favorileri veritabanına kaydet
-            const response = await axios.put(`${API_URL}/users/${user._id}/favorites/add`, {
+            const response = await apiClient.put(`/users/${user._id}/favorites/add`, {
                 productId: productId,
             });
 
@@ -230,7 +235,6 @@ export const addFavorite = async (productId, user, setUser) => {
                 throw new Error('Favorileri kaydetme hatası');
             }
 
-            await AsyncStorage.setItem('user', JSON.stringify({ ...user, favorites: updatedFavorites })); // Güncellenmiş favorileri AsyncStorage'a kaydeder
         } catch (error) {
             console.error("Favorileri kaydetme hatası:", error); // Favorileri kaydederken hata oluşursa, konsola hata mesajı yazar
         }
@@ -239,7 +243,7 @@ export const addFavorite = async (productId, user, setUser) => {
 // Favori ürünleri alma fonksiyonu
 export const fetchFavoriteProducts = async (userId) => {
     try {
-        const response = await axios.get(`${API_URL}/users/${userId}/favorites`);
+        const response = await apiClient.get(`/users/${userId}/favorites`);
         return response.data; // API'den gelen verinin doğru formatta olduğunu doğrulayın
     } catch (error) {
         console.error('Favori ürünler alınamadı:', error);
@@ -250,7 +254,7 @@ export const fetchFavoriteProducts = async (userId) => {
 // Toptancı detaylarını alma fonksiyonu
 export const fetchWholesalerDetails = async (wholesalerId) => {
     try {
-        const response = await axios.get(`${API_URL}/wholesalers/${wholesalerId}`);
+        const response = await apiClient.get(`/wholesalers/${wholesalerId}`);
         return response.data;
     } catch (error) {
         console.error('Toptancı bilgileri alınamadı:', error);
@@ -261,7 +265,7 @@ export const fetchWholesalerDetails = async (wholesalerId) => {
 // Kullanıcının cari hesaplarını alma fonksiyonu
 export const fetchUserCariAccounts = async (userId) => {
     try {
-        const response = await axios.get(`${API_URL}/users/${userId}/accounts`);
+        const response = await apiClient.get(`/users/${userId}/accounts`);
         return response.data;
     } catch (error) {
         console.error('Cari hesaplar alınamadı:', error);
@@ -269,10 +273,20 @@ export const fetchUserCariAccounts = async (userId) => {
     }
 };
 
+export const fetchWholesalerAccounts = async (wholesalerId) => {
+    try {
+        const response = await apiClient.get(`/wholesalers/${wholesalerId}/accounts`);
+        return response.data;
+    } catch (error) {
+        console.error('Bayi cari hesapları alınamadı:', error);
+        return [];
+    }
+};
+
 // Ödeme bildirimi gönderme fonksiyonu (Bayi)
 export const submitPaymentNotification = async (customerId, wholesalerId, amount, receiptFile) => {
     try {
-        const response = await axios.post(`${API_URL}/payments/notify`, {
+        const response = await apiClient.post('/payments/notify', {
             customerId,
             wholesalerId,
             amount,
@@ -288,7 +302,7 @@ export const submitPaymentNotification = async (customerId, wholesalerId, amount
 // Toptancıya gelen ödeme bildirimlerini alma fonksiyonu
 export const fetchWholesalerPayments = async (wholesalerId) => {
     try {
-        const response = await axios.get(`${API_URL}/wholesalers/${wholesalerId}/payments`);
+        const response = await apiClient.get(`/wholesalers/${wholesalerId}/payments`);
         return response.data;
     } catch (error) {
         console.error('Ödeme bildirimleri alınamadı:', error);
@@ -299,10 +313,135 @@ export const fetchWholesalerPayments = async (wholesalerId) => {
 // Ödeme bildirimi durumunu güncelleme (Onaylama / Reddetme)
 export const updatePaymentStatus = async (paymentId, status) => {
     try {
-        const response = await axios.put(`${API_URL}/payments/${paymentId}/status`, { status });
+        const response = await apiClient.put(`/payments/${paymentId}/status`, { status });
         return response.data;
     } catch (error) {
         console.error('Ödeme durumu güncellenemedi:', error);
         return null;
     }
+};
+
+// Sipariş gönderme fonksiyonu (Bayi Satın Alması)
+export const submitPurchase = async (userId, purchaseDetails) => {
+    try {
+        const response = await apiClient.post(`/users/${userId}/purchase`, purchaseDetails);
+        return response.data;
+    } catch (error) {
+        console.error('Sipariş gönderilemedi:', error);
+        throw error;
+    }
+};
+
+// Kullanıcının sipariş geçmişini alma fonksiyonu
+export const fetchUserOrders = async (userId) => {
+    try {
+        const response = await apiClient.get(`/users/${userId}/orders`);
+        return response.data;
+    } catch (error) {
+        console.error('Siparişler alınamadı:', error);
+        return [];
+    }
+};
+
+// Kullanıcının cari hesap ekstre dökümünü alma
+export const fetchUserStatement = async (userId) => {
+    try {
+        const response = await apiClient.get(`/users/${userId}/statement`);
+        return response.data;
+    } catch (error) {
+        console.error('Cari ekstre dökümü alınamadı:', error);
+        return [];
+    }
+};
+
+// Toptancıya ait gelen siparişleri alma
+export const fetchWholesalerOrders = async (wholesalerId) => {
+    try {
+        const response = await apiClient.get(`/wholesalers/${wholesalerId}/orders`);
+        return response.data;
+    } catch (error) {
+        console.error('Gelen siparişler alınamadı:', error);
+        return [];
+    }
+};
+
+// Sipariş kargo durumunu ve takip kodunu güncelleme
+export const updateOrderStatus = async (customerId, orderId, status, trackingNumber) => {
+    try {
+        const response = await apiClient.put(`/customers/${customerId}/orders/${orderId}/status`, {
+            status,
+            trackingNumber
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Sipariş durumu güncellenemedi:', error);
+        return null;
+    }
+};
+
+// Bayinin siparişe istinaden toptancıyı puanlaması
+export const submitOrderRating = async (customerId, orderId, rating, review) => {
+    try {
+        const response = await apiClient.put(`/customers/${customerId}/orders/${orderId}/rate`, {
+            rating,
+            review
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Toptancı değerlendirmesi gönderilemedi:', error);
+        return null;
+    }
+};
+
+// Bayinin profil detaylarını güncelleme
+export const updateUserProfile = async (userId, profileDetails) => {
+    try {
+        const response = await apiClient.put(`/users/${userId}/profile`, profileDetails);
+        return response.data;
+    } catch (error) {
+        console.error('Profil güncellenemedi:', error);
+        return null;
+    }
+};
+
+// Toptancı ayarlarını güncelleme
+export const updateUserSettings = async (userId, settingsDetails) => {
+    try {
+        const response = await apiClient.put(`/users/${userId}/settings`, settingsDetails);
+        return response.data;
+    } catch (error) {
+        console.error('Ayarlar güncellenemedi:', error);
+        return null;
+    }
+};
+
+// Toptancı Personel Yönetimi APIs
+export const fetchEmployees = async (wholesalerId) => {
+    try {
+        const response = await apiClient.get(`/wholesalers/${wholesalerId}/employees`);
+        return response.data;
+    } catch (error) {
+        console.error('Personel listesi alınamadı:', error);
+        return null;
+    }
+};
+
+export const addEmployee = async (wholesalerId, employeeData) => {
+    const response = await apiClient.post(`/wholesalers/${wholesalerId}/employees`, employeeData);
+    return response.data;
+};
+
+export const deleteEmployee = async (wholesalerId, employeeName) => {
+    const response = await apiClient.delete(`/wholesalers/${wholesalerId}/employees/${encodeURIComponent(employeeName)}`);
+    return response.data;
+};
+
+export const registerUser = async (userData) => {
+    const response = await apiClient.post('/register', userData);
+    return response.data;
+};
+
+export const loginUser = async (email, password) => {
+    const response = await apiClient.post('/login', { email, password });
+    return response.data;
 };

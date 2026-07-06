@@ -153,6 +153,14 @@ const PaymentApprovalsScreen = ({ navigation }) => {
     );
   };
 
+  const pendingCount = payments.filter(payment => payment.status === 'Pending').length;
+  const approvedTotal = payments
+    .filter(payment => payment.status === 'Approved')
+    .reduce((sum, payment) => sum + (payment.amount || 0), 0);
+  const pendingTotal = payments
+    .filter(payment => payment.status === 'Pending')
+    .reduce((sum, payment) => sum + (payment.amount || 0), 0);
+
   return (
     <SafeAreaView style={styles.container}>
       {toast.visible && (
@@ -172,6 +180,31 @@ const PaymentApprovalsScreen = ({ navigation }) => {
           renderItem={renderPaymentItem}
           keyExtractor={(item) => item._id}
           contentContainerStyle={styles.listContainer}
+          ListHeaderComponent={
+            <View style={styles.pageHeader}>
+              <Text style={styles.eyebrow}>Muhasebe Paneli</Text>
+              <Text style={styles.pageTitle}>Ödeme Onayları</Text>
+              <Text style={styles.pageSubtitle}>Bayilerden gelen dekont ve ödeme bildirimlerini kontrol edip cari borçtan düşebilirsiniz.</Text>
+
+              <View style={styles.summaryGrid}>
+                <View style={styles.summaryCard}>
+                  <Text style={styles.summaryLabel}>Bekleyen Bildirim</Text>
+                  <Text style={styles.summaryValueWarning}>{pendingCount}</Text>
+                  <Text style={styles.summaryHint}>İşlem bekleyen ödeme kaydı</Text>
+                </View>
+                <View style={styles.summaryCard}>
+                  <Text style={styles.summaryLabel}>Bekleyen Tutar</Text>
+                  <Text style={styles.summaryValue}>{pendingTotal.toLocaleString('tr-TR')} ₺</Text>
+                  <Text style={styles.summaryHint}>Onaylandığında cariden düşer</Text>
+                </View>
+                <View style={styles.summaryCard}>
+                  <Text style={styles.summaryLabel}>Onaylanan Tahsilat</Text>
+                  <Text style={styles.summaryValueSuccess}>{approvedTotal.toLocaleString('tr-TR')} ₺</Text>
+                  <Text style={styles.summaryHint}>Onaylanmış ödeme toplamı</Text>
+                </View>
+              </View>
+            </View>
+          }
           refreshControl={
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
@@ -250,6 +283,77 @@ const styles = StyleSheet.create({
   listContainer: {
     padding: 20,
     alignItems: 'center',
+  },
+  pageHeader: {
+    width: '100%',
+    maxWidth: 900,
+    marginBottom: 16,
+  },
+  eyebrow: {
+    fontSize: 11,
+    color: '#64748B',
+    fontWeight: '800',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+    marginBottom: 3,
+  },
+  pageTitle: {
+    fontSize: 22,
+    fontWeight: '900',
+    color: '#0F172A',
+    marginBottom: 4,
+  },
+  pageSubtitle: {
+    fontSize: 12.5,
+    color: '#64748B',
+    marginBottom: 14,
+  },
+  summaryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    marginHorizontal: -6,
+  },
+  summaryCard: {
+    flex: 1,
+    minWidth: 210,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 12,
+    padding: 14,
+    marginHorizontal: 6,
+    marginBottom: 10,
+  },
+  summaryLabel: {
+    fontSize: 12,
+    color: '#64748B',
+    fontWeight: '800',
+  },
+  summaryValue: {
+    fontSize: 22,
+    color: '#1E3A8A',
+    fontWeight: '900',
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  summaryValueWarning: {
+    fontSize: 22,
+    color: '#F97316',
+    fontWeight: '900',
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  summaryValueSuccess: {
+    fontSize: 22,
+    color: '#10B981',
+    fontWeight: '900',
+    marginTop: 10,
+    marginBottom: 6,
+  },
+  summaryHint: {
+    fontSize: 11.5,
+    color: '#64748B',
+    lineHeight: 16,
   },
   paymentCard: {
     width: '100%',

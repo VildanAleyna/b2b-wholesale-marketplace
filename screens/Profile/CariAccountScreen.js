@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../../context/AuthContext';
-import { fetchUserCariAccounts, submitPaymentNotification } from '../../data/Data';
+import { fetchUserCariAccounts, submitPaymentNotification, fetchUserStatement } from '../../data/Data';
 
 const CariAccountScreen = ({ navigation }) => {
   const { user } = useContext(AuthContext);
@@ -23,6 +23,22 @@ const CariAccountScreen = ({ navigation }) => {
   const [toast, setToast] = useState({ visible: false, message: '' });
 
   const [isPayModalVisible, setPayModalVisible] = useState(false);
+  const [isStatementModalVisible, setStatementModalVisible] = useState(false);
+  const [statementRows, setStatementRows] = useState([]);
+  const [isStatementLoading, setStatementLoading] = useState(false);
+
+  const handleOpenStatementModal = async () => {
+    setStatementModalVisible(true);
+    setStatementLoading(true);
+    try {
+      const data = await fetchUserStatement(user._id);
+      setStatementRows(data);
+    } catch (error) {
+      console.error('Ekstre döküm hatası:', error);
+    } finally {
+      setStatementLoading(false);
+    }
+  };
   const [selectedAccount, setSelectedAccount] = useState(null);
   const [payAmount, setPayAmount] = useState('');
   const [receiptFileName, setReceiptFileName] = useState('');
@@ -231,7 +247,7 @@ const CariAccountScreen = ({ navigation }) => {
                   
                   <TouchableOpacity 
                     style={styles.ledgerButton}
-                    onPress={() => showToast('Cari ekstre PDF raporu yakında indirilebilir olacaktır.')}
+                    onPress={handleOpenStatementModal}
                   >
                     <Ionicons name="document-text-outline" size={16} color="#1E3A8A" style={{ marginRight: 6 }} />
                     <Text style={styles.ledgerButtonText}>Ekstre İndir</Text>
@@ -331,6 +347,92 @@ const CariAccountScreen = ({ navigation }) => {
           </View>
         </View>
       </Modal>
+
+      {/* Cari Ekstre Detay Tablosu Modalı */}
+      <Modal
+        visible={isStatementModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setStatementModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={[styles.modalContent, styles.statementModalContent]}>
+            <View style={styles.modalHeader}>
+              <View style={styles.modalTitleRow}>
+                <Ionicons name="document-text" size={22} color="#1E3A8A" style={{ marginRight: 8 }} />
+                <Text style={styles.modalTitle}>Cari Hesap Ekstresi</Text>
+              </View>
+              <TouchableOpacity onPress={() => setStatementModalVisible(false)} style={styles.modalCloseIcon}>
+                <Ionicons name="close" size={22} color="#64748B" />
+              </TouchableOpacity>
+            </View>
+
+            {isStatementLoading ? (
+              <View style={styles.statementLoadingBox}>
+                <ActivityIndicator size="large" color="#1E3A8A" />
+                <Text style={styles.statementLoadingText}>Hesap hareketleri derleniyor...</Text>
+              </View>
+            ) : (
+              <View style={{ flex: 1 }}>
+                {statementRows.length === 0 ? (
+                  <View style={styles.emptyStatementBox}>
+                    <Ionicons name="folder-open-outline" size={50} color="#CBD5E1" style={{ marginBottom: 12 }} />
+                    <Text style={styles.emptyStatementText}>Henüz işlem kaydı bulunamadı.</Text>
+                  </View>
+                ) : (
+                  <View style={{ flex: 1 }}>
+                    <ScrollView style={styles.statementTableContainer}>
+                      {/* Tablo Başlıkları */}
+                      <View style={styles.tableHeaderRow}>
+                        <Text style={[styles.tableHeaderCol, { flex: 2 }]}>Tarih</Text>
+                        <Text style={[styles.tableHeaderCol, { flex: 3 }]}>İşlem / Açıklama</Text>
+                        <Text style={[styles.tableHeaderCol, { flex: 2, textAlign: 'right' }]}>Tutar</Text>
+                      </View>
+
+                      {/* Tablo Satırları */}
+                      {statementRows.map((row, idx) => {
+                        const dateFormatted = new Date(row.date).toLocaleDateString('tr-TR', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric'
+                        });
+
+                        const isCredit = row.effect === 'credit';
+
+                        return (
+                          <View key={row._id || idx} style={styles.tableBodyRow}>
+                            <Text style={[styles.tableBodyCol, { flex: 2, fontSize: 11, color: '#64748B' }]}>{dateFormatted}</Text>
+                            <View style={{ flex: 3 }}>
+                              <Text style={styles.tableDescText}>{row.type}</Text>
+                              <Text style={styles.tableSubDescText} numberOfLines={1}>{row.description}</Text>
+                            </View>
+                            <Text style={[
+                              styles.tableBodyCol, 
+                              { flex: 2, textAlign: 'right', fontWeight: '800' },
+                              isCredit ? { color: '#10B981' } : { color: '#475569' }
+                            ]}>
+                              {isCredit ? '+' : '-'}{row.amount.toLocaleString('tr-TR')} ₺
+                            </Text>
+                          </View>
+                        );
+                      })}
+                    </ScrollView>
+                  </View>
+                )}
+
+                <View style={styles.statementFooter}>
+                  <TouchableOpacity 
+                    style={styles.closeStatementBtn} 
+                    onPress={() => setStatementModalVisible(false)}
+                  >
+                    <Text style={styles.closeStatementBtnText}>Kapat</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -346,7 +448,7 @@ const styles = StyleSheet.create({
   },
   header: {
     width: '100%',
-    maxWidth: 600,
+    maxWidth: 950,
     marginBottom: 25,
   },
   headerTitle: {
@@ -362,7 +464,7 @@ const styles = StyleSheet.create({
   },
   accountCard: {
     width: '100%',
-    maxWidth: 600,
+    maxWidth: 950,
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 20,
@@ -568,6 +670,88 @@ const styles = StyleSheet.create({
   toastText: {
     color: '#FFFFFF',
     fontWeight: '600',
+    fontSize: 14,
+  },
+  statementModalContent: {
+    maxHeight: '85%',
+    width: '95%',
+    maxWidth: 950,
+  },
+  statementLoadingBox: {
+    paddingVertical: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statementLoadingText: {
+    fontSize: 14,
+    color: '#64748B',
+    marginTop: 12,
+    fontWeight: '600',
+  },
+  emptyStatementBox: {
+    paddingVertical: 80,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  emptyStatementText: {
+    fontSize: 14,
+    color: '#94A3B8',
+    fontWeight: '600',
+  },
+  statementTableContainer: {
+    flex: 1,
+    marginTop: 10,
+  },
+  tableHeaderRow: {
+    flexDirection: 'row',
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    marginBottom: 8,
+  },
+  tableHeaderCol: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: '#475569',
+  },
+  tableBodyRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+  },
+  tableBodyCol: {
+    fontSize: 12,
+    color: '#1E293B',
+  },
+  tableDescText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#1E293B',
+  },
+  tableSubDescText: {
+    fontSize: 10,
+    color: '#94A3B8',
+    marginTop: 2,
+  },
+  statementFooter: {
+    borderTopWidth: 1,
+    borderTopColor: '#F1F5F9',
+    paddingTop: 15,
+    marginTop: 10,
+  },
+  closeStatementBtn: {
+    backgroundColor: '#1E3A8A',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  closeStatementBtnText: {
+    color: '#FFFFFF',
+    fontWeight: '700',
     fontSize: 14,
   },
   modalOverlay: {

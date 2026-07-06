@@ -57,11 +57,77 @@ const ProfileScreen = ({ navigation }) => {
             <Text style={styles.roleBadgeText}>Bayi / Müşteri</Text>
           </View>
 
+          {/* Otomatik Sadakat / İlerleme Durumu */}
+          {(() => {
+            const completedOrders = user?.orders || [];
+            const totalSpent = completedOrders.reduce((sum, o) => sum + o.totalAmount, 0);
+            
+            let currentTier = user?.tier || 'Bronze';
+            let nextTier = 'Silver';
+            let target = 20000;
+            let remaining = 20000 - totalSpent;
+            
+            if (currentTier === 'Silver') {
+              nextTier = 'Gold';
+              target = 100000;
+              remaining = 100000 - totalSpent;
+            } else if (currentTier === 'Gold') {
+              nextTier = null;
+              target = 100000;
+              remaining = 0;
+            }
+
+            let percentage = 0;
+            if (currentTier === 'Bronze') {
+              percentage = Math.min(100, Math.max(0, (totalSpent / 20000) * 100));
+            } else if (currentTier === 'Silver') {
+              percentage = Math.min(100, Math.max(0, ((totalSpent - 20000) / 80000) * 100));
+            } else {
+              percentage = 100;
+            }
+
+            return (
+              <View style={[
+                styles.loyaltyBox,
+                currentTier === 'Silver' && styles.loyaltyBoxSilver,
+                currentTier === 'Gold' && styles.loyaltyBoxGold
+              ]}>
+                <View style={styles.loyaltyHeader}>
+                  <Text style={styles.loyaltyTitle}>Bayi Derecesi:</Text>
+                  <Text style={[
+                    styles.loyaltyValue,
+                    currentTier === 'Silver' && styles.loyaltyValueSilver,
+                    currentTier === 'Gold' && styles.loyaltyValueGold
+                  ]}>
+                    {currentTier} Bayi
+                  </Text>
+                </View>
+                <View style={styles.progressBarContainer}>
+                  <View style={[
+                    styles.progressBar, 
+                    { width: `${percentage}%` },
+                    currentTier === 'Silver' && styles.progressBarSilver,
+                    currentTier === 'Gold' && styles.progressBarGold
+                  ]} />
+                </View>
+                <Text style={styles.loyaltyDesc}>
+                  {currentTier === 'Gold' ? (
+                    '🏆 En yüksek VIP bayi iskontosu aktif! Tüm toptan alımlarda %20 indirimli fiyatları kullanıyorsunuz.'
+                  ) : currentTier === 'Silver' ? (
+                    `Gold Bayi (%20 İndirim) olmak için son ${remaining.toLocaleString('tr-TR')} ₺ harcama! (Toplam: ${totalSpent.toLocaleString('tr-TR')} ₺)`
+                  ) : (
+                    `Silver Bayi (%10 İndirim) olmak için son ${remaining.toLocaleString('tr-TR')} ₺ harcama! (Toplam: ${totalSpent.toLocaleString('tr-TR')} ₺)`
+                  )}
+                </Text>
+              </View>
+            );
+          })()}
+
           {/* Menü Listesi */}
           <View style={styles.menuList}>
             <TouchableOpacity 
               style={styles.menuItem} 
-              onPress={() => showToast('Profil düzenleme özelliği yakında eklenecektir.')}
+              onPress={() => navigation.navigate('EditProfile')}
             >
               <View style={styles.menuLeft}>
                 <Ionicons name="person-outline" size={20} color="#1E3A8A" style={styles.menuIcon} />
@@ -94,7 +160,7 @@ const ProfileScreen = ({ navigation }) => {
 
             <TouchableOpacity 
               style={styles.menuItem} 
-              onPress={() => showToast('Ayarlar özelliği yakında eklenecektir.')}
+              onPress={() => navigation.navigate('Settings')}
             >
               <View style={styles.menuLeft}>
                 <Ionicons name="settings-outline" size={20} color="#1E3A8A" style={styles.menuIcon} />
@@ -134,7 +200,7 @@ const styles = StyleSheet.create({
     padding: 35,
     borderRadius: 24,
     width: '100%',
-    maxWidth: 450, // Web'de aşırı genişlemeyi önler
+    maxWidth: 800, // Web'de aşırı sıkışmayı ve kesilmeleri önler
     alignItems: 'center',
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 10 },
@@ -241,6 +307,70 @@ const styles = StyleSheet.create({
     color: '#FFFFFF',
     fontWeight: '600',
     fontSize: 14,
+  },
+  loyaltyBox: {
+    width: '100%',
+    backgroundColor: '#F8FAFC',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 15,
+    marginBottom: 5,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  loyaltyBoxSilver: {
+    backgroundColor: '#F1F5F9',
+    borderColor: '#CBD5E1',
+  },
+  loyaltyBoxGold: {
+    backgroundColor: '#FFFBEB',
+    borderColor: '#FDE68A',
+  },
+  loyaltyHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  loyaltyTitle: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#64748B',
+  },
+  loyaltyValue: {
+    fontSize: 13,
+    fontWeight: '850',
+    color: '#475569',
+  },
+  loyaltyValueSilver: {
+    color: '#1E293B',
+  },
+  loyaltyValueGold: {
+    color: '#D97706',
+  },
+  progressBarContainer: {
+    height: 8,
+    backgroundColor: '#E2E8F0',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 8,
+  },
+  progressBar: {
+    height: '100%',
+    backgroundColor: '#475569',
+    borderRadius: 4,
+  },
+  progressBarSilver: {
+    backgroundColor: '#3B82F6',
+  },
+  progressBarGold: {
+    backgroundColor: '#D97706',
+  },
+  loyaltyDesc: {
+    fontSize: 10.5,
+    fontWeight: '600',
+    color: '#64748B',
+    lineHeight: 14,
   },
 });
 

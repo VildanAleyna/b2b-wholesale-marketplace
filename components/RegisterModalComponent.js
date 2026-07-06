@@ -1,33 +1,14 @@
-import React, { useState, useEffect, useContext } from 'react';
+import React, { useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, TouchableWithoutFeedback, Alert } from 'react-native';
-import axios from 'axios';
-import { fetchUsers } from '../data/Data';
-import { AuthContext } from '../context/AuthContext';
-
-const API_URL = 'http://192.168.1.108:3000';
+import { registerUser } from '../data/Data';
 
 const RegisterModalComponent = ({ isVisible, onClose, onNavigateToLogin }) => {
-  const { loadUsers } = useContext(AuthContext);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [taxNumber, setTaxNumber] = useState('');
   const [wholesaler, setWholesaler] = useState(null);
-  const [users, setUsers] = useState([]);
-
-  useEffect(() => {
-    const loadUsersData = async () => {
-      try {
-        const data = await fetchUsers();
-        setUsers(data);
-      } catch (error) {
-        console.error("Kullanıcıları yükleme hatası:", error);
-      }
-    };
-
-    loadUsersData();
-  }, []);
 
   const handleRegister = async () => {
     if (password !== confirmPassword) {
@@ -50,10 +31,8 @@ const RegisterModalComponent = ({ isVisible, onClose, onNavigateToLogin }) => {
         ...(wholesaler ? { employee: [] } : { favorites: [] })
       };
 
-      await axios.post(`${API_URL}/register`, userData);
+      await registerUser(userData);
       Alert.alert('Başarı', 'Kayıt başarılı!');
-      
-      await loadUsers();
 
       onClose();
     } catch (error) {

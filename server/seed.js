@@ -1,8 +1,38 @@
 const mongoose = require('mongoose');
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
+
+const loadEnvFile = () => {
+    const envPath = path.join(__dirname, '.env');
+    if (!fs.existsSync(envPath)) {
+        return;
+    }
+
+    const lines = fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
+    lines.forEach((line) => {
+        const trimmed = line.trim();
+        if (!trimmed || trimmed.startsWith('#')) {
+            return;
+        }
+
+        const separatorIndex = trimmed.indexOf('=');
+        if (separatorIndex === -1) {
+            return;
+        }
+
+        const key = trimmed.slice(0, separatorIndex).trim();
+        const value = trimmed.slice(separatorIndex + 1).trim().replace(/^['"]|['"]$/g, '');
+        if (key && process.env[key] === undefined) {
+            process.env[key] = value;
+        }
+    });
+};
+
+loadEnvFile();
 
 // MongoDB Bağlantısı
-const MONGO_URI = 'mongodb://localhost:27017/Toptanci';
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/Toptanci';
 
 const hashPassword = (password) => {
     return crypto.createHash('sha256').update(password).digest('hex');
@@ -41,6 +71,7 @@ const seedDatabase = async () => {
             modelId: { type: mongoose.Schema.Types.ObjectId, required: true },
             brandId: { type: mongoose.Schema.Types.ObjectId, required: true },
             image: { type: String, required: true },
+            minOrderQuantity: { type: Number, default: 1 },
             wholesalers: [{
                 usersID: { type: mongoose.Schema.Types.ObjectId, required: true },
                 name: String,
@@ -59,10 +90,12 @@ const seedDatabase = async () => {
             wholesaler: Boolean,
             address: String,
             phone: String,
+            tier: String, // Gold, Silver, Bronze
             wholesalerAccounts: [Object],
             employee: [Object],
             favorites: [mongoose.Schema.Types.ObjectId],
-            products: [Object]
+            products: [Object],
+            orders: [Object]
         }));
 
         // 1. Örnek Toptancı ve Müşteri Kullanıcıları Oluştur
@@ -95,13 +128,23 @@ const seedDatabase = async () => {
                 password: hashPassword('1234'),
                 wholesaler: false,
                 favorites: [],
+                tier: 'Bronze', // Ahmet Bayi starts as a Bronze dealer (0% discount)
+                companyName: 'Ahmet Bayi Market',
+                authorizedPerson: 'Ahmet Yılmaz',
+                taxNumber: '1234567890',
+                taxOffice: 'İkitelli Vergi Dairesi',
+                address: 'İstoç Ticaret Merkezi 24. Ada No: 12, Bağcılar / İstanbul',
+                phone: '+90 555 123 45 67',
+                notificationEmail: true,
+                notificationLimitWarning: true,
                 wholesalerAccounts: [
                     {
                         wholesalerId: wholesalerId,
                         creditLimit: 150000,
                         currentDebt: 45000
                     }
-                ]
+                ],
+                orders: []
             }
         ]);
         console.log('Kullanıcılar oluşturuldu.');
@@ -171,6 +214,7 @@ const seedDatabase = async () => {
                 image: 'https://images.unsplash.com/photo-1602143407151-7111542de6e8?q=80&w=400',
                 price: 1850,
                 stock: 120,
+                moq: 5, // Minimum sipariş adedi
                 desc: 'Çift katmanlı paslanmaz çelik vakum yalıtımı ile sıcak/soğuk tutar.'
             },
             {
@@ -181,6 +225,7 @@ const seedDatabase = async () => {
                 image: 'https://images.unsplash.com/photo-1558317374-067fb5f30001?q=80&w=400',
                 price: 24500,
                 stock: 15,
+                moq: 2, // Minimum sipariş adedi
                 desc: 'Lazer aydınlatmalı ve akıllı emiş gücü ayarlı kablosuz dikey süpürge.'
             },
             {
@@ -416,6 +461,7 @@ const seedDatabase = async () => {
                 modelId: prodData.modelId,
                 brandId: prodData.brandId,
                 image: prodData.image,
+                minOrderQuantity: prodData.moq || 1,
                 wholesalers: [{
                     usersID: wholesalerId,
                     name: 'Vildan Toptan Ticaret',

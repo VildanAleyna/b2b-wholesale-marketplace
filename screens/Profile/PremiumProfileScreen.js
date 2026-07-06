@@ -59,7 +59,18 @@ const PremiumProfileScreen = ({ navigation }) => {
 
           <TouchableOpacity 
             style={styles.menuItem} 
-            onPress={() => showToast('Profil düzenleme özelliği yakında eklenecektir.')}
+            onPress={() => navigation.navigate('WholesalerOrders')}
+          >
+            <View style={styles.menuLeft}>
+              <Ionicons name="cart-outline" size={20} color="#1E3A8A" style={styles.menuIcon} />
+              <Text style={styles.menuText}>Gelen Siparişler</Text>
+            </View>
+            <Ionicons name="chevron-forward-outline" size={18} color="#94A3B8" />
+          </TouchableOpacity>
+
+          <TouchableOpacity 
+            style={styles.menuItem} 
+            onPress={() => navigation.navigate('EditProfile')}
           >
             <View style={styles.menuLeft}>
               <Ionicons name="person-outline" size={20} color="#1E3A8A" style={styles.menuIcon} />
@@ -70,7 +81,7 @@ const PremiumProfileScreen = ({ navigation }) => {
 
           <TouchableOpacity 
             style={styles.menuItem} 
-            onPress={() => showToast('Firma ayarları yakında eklenecektir.')}
+            onPress={() => navigation.navigate('Settings')}
           >
             <View style={styles.menuLeft}>
               <Ionicons name="settings-outline" size={20} color="#1E3A8A" style={styles.menuIcon} />

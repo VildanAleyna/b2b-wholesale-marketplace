@@ -20,13 +20,22 @@ import { fetchFavoriteProducts, addFavorite, removeFavorite } from '../data/Data
 const isWeb = Platform.OS === 'web';
 const width = Dimensions.get('window').width;
 
-const Item = ({ price, title, image, onAddToCart, onToggleFavorite, isFavorite, wholesalers, onWholesalerPress }) => {
+const Item = ({ price, title, image, onAddToCart, onToggleFavorite, isFavorite, wholesalers, onWholesalerPress, user }) => {
   const getLowestPrice = (wholesalers) => {
     if (!wholesalers || wholesalers.length === 0) return price;
     return Math.min(...wholesalers.map(wholesaler => wholesaler.price));
   };
 
+  const getDiscountMultiplier = () => {
+    if (!user) return 1.0;
+    if (user.tier === 'Gold') return 0.8; // %20 İndirim
+    if (user.tier === 'Silver') return 0.9; // %10 İndirim
+    return 1.0;
+  };
+
   const lowestPrice = getLowestPrice(wholesalers);
+  const discountMultiplier = getDiscountMultiplier();
+  const discountedPrice = lowestPrice ? Math.round(lowestPrice * discountMultiplier) : 0;
   const mainWholesaler = wholesalers?.[0];
 
   return (
@@ -43,7 +52,24 @@ const Item = ({ price, title, image, onAddToCart, onToggleFavorite, isFavorite, 
         </TouchableOpacity>
       )}
 
-      <Text style={styles.price}>{lowestPrice ? `${lowestPrice} ₺` : 'Fiyat Yok'}</Text>
+      {discountMultiplier < 1.0 && lowestPrice ? (
+        <View style={{ flexDirection: 'column', alignSelf: 'flex-start', marginVertical: 4, width: '100%' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <Text style={[styles.price, { textDecorationLine: 'line-through', fontSize: 11, color: '#94A3B8', marginRight: 6, marginBottom: 0 }]}>
+              {lowestPrice} ₺
+            </Text>
+            <Text style={[styles.price, { color: '#10B981', marginBottom: 0 }]}>
+              {discountedPrice} ₺
+            </Text>
+          </View>
+          <View style={styles.discountBadge}>
+            <Text style={styles.discountBadgeText}>%{Math.round((1 - discountMultiplier) * 100)} {user.tier} İskontosu</Text>
+          </View>
+        </View>
+      ) : (
+        <Text style={styles.price}>{lowestPrice ? `${lowestPrice} ₺` : 'Fiyat Yok'}</Text>
+      )}
+
       <TouchableOpacity style={styles.addToCartButton} onPress={onAddToCart}>
         <Text style={styles.addToCartButtonText}>Sepete Ekle</Text>
       </TouchableOpacity>
@@ -166,6 +192,7 @@ const FavoritesScreen = ({ navigation }) => {
                   onAddToCart={() => handleAddToCart(item)}
                   onToggleFavorite={() => handleToggleFavorite(item)}
                   isFavorite={user?.favorites?.includes(item._id)}
+                  user={user}
                   onWholesalerPress={() => {
                     const mainWholesaler = item.wholesalers?.[0];
                     if (mainWholesaler?.usersID) {
@@ -336,6 +363,21 @@ const styles = StyleSheet.create({
     fontSize: 11,
     fontWeight: '700',
     color: '#F97316',
+  },
+  discountBadge: {
+    backgroundColor: '#EFF6FF',
+    paddingVertical: 2,
+    paddingHorizontal: 6,
+    borderRadius: 6,
+    alignSelf: 'flex-start',
+    marginTop: 4,
+    borderWidth: 1,
+    borderColor: '#DBEAFE',
+  },
+  discountBadgeText: {
+    fontSize: 9,
+    fontWeight: '800',
+    color: '#1E3A8A',
   },
 });
 
