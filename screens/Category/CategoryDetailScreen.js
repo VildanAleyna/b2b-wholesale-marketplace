@@ -18,18 +18,29 @@ import { Ionicons } from '@expo/vector-icons';
 const isWeb = Platform.OS === 'web';
 const width = Dimensions.get('window').width;
 
-const Item = ({ price, title, image, onAddToCart, onToggleFavorite, isFavorite, wholesalers }) => {
+const Item = ({ price, title, image, onAddToCart, onToggleFavorite, isFavorite, wholesalers, onWholesalerPress }) => {
   const getLowestPrice = (wholesalers) => {
     if (!wholesalers || wholesalers.length === 0) return price;
     return Math.min(...wholesalers.map(wholesaler => wholesaler.price));
   };
 
   const lowestPrice = getLowestPrice(wholesalers);
+  const mainWholesaler = wholesalers?.[0];
 
   return (
     <View style={styles.item}>
       <Image source={{ uri: image }} style={styles.image} />
       <Text style={styles.title} numberOfLines={2}>{title}</Text>
+      
+      {mainWholesaler && (
+        <TouchableOpacity style={styles.wholesalerContainer} onPress={onWholesalerPress}>
+          <Ionicons name="business-outline" size={12} color="#F97316" style={{ marginRight: 4 }} />
+          <Text style={styles.wholesalerText} numberOfLines={1}>
+            {mainWholesaler.name || 'Tedarikçi'}
+          </Text>
+        </TouchableOpacity>
+      )}
+
       <Text style={styles.price}>{lowestPrice ? `${lowestPrice} ₺` : 'Fiyat Yok'}</Text>
       <TouchableOpacity style={styles.addToCartButton} onPress={onAddToCart}>
         <Text style={styles.addToCartButtonText}>Sepete Ekle</Text>
@@ -162,6 +173,15 @@ const CategoryDetailScreen = ({ route, navigation }) => {
                   onAddToCart={() => handleAddToCart(item)}
                   onToggleFavorite={() => handleToggleFavorite(item)}
                   isFavorite={user?.favorites?.includes(item._id)}
+                  onWholesalerPress={() => {
+                    const mainWholesaler = item.wholesalers?.[0];
+                    if (mainWholesaler?.usersID) {
+                      navigation.navigate('WholesalerDetail', {
+                        wholesalerId: mainWholesaler.usersID,
+                        wholesalerName: mainWholesaler.name
+                      });
+                    }
+                  }}
                 />
               </View>
             ))}
@@ -370,6 +390,20 @@ const styles = StyleSheet.create({
   modalActionButtonText: {
     color: '#FFFFFF',
     fontWeight: '600',
+  },
+  wholesalerContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF7ED',
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    marginBottom: 8,
+  },
+  wholesalerText: {
+    fontSize: 11,
+    fontWeight: '700',
+    color: '#F97316',
   },
 });
 

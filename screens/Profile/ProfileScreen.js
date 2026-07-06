@@ -83,6 +83,17 @@ const ProfileScreen = ({ navigation }) => {
 
             <TouchableOpacity 
               style={styles.menuItem} 
+              onPress={() => navigation.navigate('CariAccount')}
+            >
+              <View style={styles.menuLeft}>
+                <Ionicons name="wallet-outline" size={20} color="#1E3A8A" style={styles.menuIcon} />
+                <Text style={styles.menuText}>Cari Hesaplarım</Text>
+              </View>
+              <Ionicons name="chevron-forward-outline" size={18} color="#94A3B8" />
+            </TouchableOpacity>
+
+            <TouchableOpacity 
+              style={styles.menuItem} 
               onPress={() => showToast('Ayarlar özelliği yakında eklenecektir.')}
             >
               <View style={styles.menuLeft}>

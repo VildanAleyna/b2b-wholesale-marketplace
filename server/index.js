@@ -33,6 +33,7 @@ const ProductSchema = new mongoose.Schema({
     image: { type: String, required: true },
     wholesalers: [{
         usersID: { type: mongoose.Schema.Types.ObjectId, required: true },
+        name: String,
         price: { type: Number, required: true }, 
         stockQuantity: { type: Number, required: true },
         minStockLevel: { type: Number, required: true },
@@ -50,6 +51,18 @@ const UserSchema = new mongoose.Schema({
     password: String,
     taxNumber: String,
     wholesaler: Boolean,
+    address: { type: String, default: "" },
+    phone: { type: String, default: "" },
+    wholesalerAccounts: {
+        type: [{
+            wholesalerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+            creditLimit: { type: Number, default: 100000 },
+            currentDebt: { type: Number, default: 0 }
+        }],
+        default: function() {
+            return this.wholesaler === false ? [] : undefined;
+        }
+    },
     employee: {
         type: [Object],
         default: function() {
@@ -71,6 +84,16 @@ const UserSchema = new mongoose.Schema({
 });
 
 const User = mongoose.model('User', UserSchema);
+
+const PaymentNotificationSchema = new mongoose.Schema({
+    customerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    wholesalerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
+    amount: { type: Number, required: true },
+    receiptFile: { type: String, required: true }, // Simüle edilen dosya adı
+    status: { type: String, enum: ['Pending', 'Approved', 'Rejected'], default: 'Pending' },
+    createdAt: { type: Date, default: Date.now }
+});
+const PaymentNotification = mongoose.model('PaymentNotification', PaymentNotificationSchema);
 
 const CategorySchema = new mongoose.Schema({
     name: String,
@@ -505,7 +528,104 @@ app.put('/users/:id/favorites/remove', async (req, res) => {
     }
 });
 
+// Belirli bir toptancının detaylarını almak için endpoint
+app.get('/wholesalers/:id', async (req, res) => {
+    try {
+        const wholesaler = await User.findOne({ _id: req.params.id, wholesaler: true });
+        if (!wholesaler) {
+            return res.status(404).json({ message: 'Toptancı bulunamadı.' });
+        }
+        res.json({
+            _id: wholesaler._id,
+            name: wholesaler.name,
+            email: wholesaler.email,
+            taxNumber: wholesaler.taxNumber,
+            address: wholesaler.address || 'Adres bilgisi girilmemiş',
+            phone: wholesaler.phone || 'Telefon bilgisi girilmemiş'
+        });
+    } catch (error) {
+        res.status(500).json({ message: 'Toptancı bilgileri alınamadı.', error: error.message });
+    }
+});
 
+// Kullanıcının cari hesaplarını almak için endpoint
+app.get('/users/:userId/accounts', async (req, res) => {
+    try {
+        const user = await User.findById(req.params.userId).populate('wholesalerAccounts.wholesalerId', 'name email address phone taxNumber');
+        if (!user) {
+            return res.status(404).json({ message: 'Kullanıcı bulunamadı.' });
+        }
+        res.json(user.wholesalerAccounts || []);
+    } catch (error) {
+        res.status(500).json({ message: 'Cari hesaplar alınamadı.', error: error.message });
+    }
+});
+
+// Ödeme bildirimini kaydetme endpoint'i (Bayi gönderir)
+app.post('/payments/notify', async (req, res) => {
+    const { customerId, wholesalerId, amount, receiptFile } = req.body;
+    try {
+        const newNotification = await PaymentNotification.create({
+            customerId,
+            wholesalerId,
+            amount,
+            receiptFile,
+            status: 'Pending'
+        });
+        res.status(201).json(newNotification);
+    } catch (error) {
+        res.status(500).json({ message: 'Ödeme bildirimi kaydedilemedi.', error: error.message });
+    }
+});
+
+// Toptancıya gelen ödeme bildirimlerini listeleme
+app.get('/wholesalers/:id/payments', async (req, res) => {
+    try {
+        const payments = await PaymentNotification.find({ wholesalerId: req.params.id })
+            .populate('customerId', 'name email taxNumber')
+            .sort({ createdAt: -1 });
+        res.json(payments);
+    } catch (error) {
+        res.status(500).json({ message: 'Ödeme bildirimleri alınamadı.', error: error.message });
+    }
+});
+
+// Toptancının ödemeyi onaylaması veya reddetmesi
+app.put('/payments/:id/status', async (req, res) => {
+    const { status } = req.body; // 'Approved' veya 'Rejected'
+    try {
+        const payment = await PaymentNotification.findById(req.params.id);
+        if (!payment) {
+            return res.status(404).json({ message: 'Ödeme bildirimi bulunamadı.' });
+        }
+
+        if (payment.status !== 'Pending') {
+            return res.status(400).json({ message: 'Bu bildirim zaten sonuçlandırılmış.' });
+        }
+
+        payment.status = status;
+        await payment.save();
+
+        // Eğer onaylandıysa, bayinin ilgili cari hesabındaki borcundan düşelim
+        if (status === 'Approved') {
+            const customer = await User.findById(payment.customerId);
+            if (customer) {
+                const account = customer.wholesalerAccounts.find(
+                    acc => acc.wholesalerId.toString() === payment.wholesalerId.toString()
+                );
+                if (account) {
+                    account.currentDebt = Math.max(0, account.currentDebt - payment.amount);
+                    customer.markModified('wholesalerAccounts'); // Alt döküman değişikliğini bildir
+                    await customer.save();
+                }
+            }
+        }
+
+        res.json(payment);
+    } catch (error) {
+        res.status(500).json({ message: 'Ödeme durumu güncellenemedi.', error: error.message });
+    }
+});
 
 
 // Server'ı başlat

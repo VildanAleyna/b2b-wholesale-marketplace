@@ -43,6 +43,7 @@ const seedDatabase = async () => {
             image: { type: String, required: true },
             wholesalers: [{
                 usersID: { type: mongoose.Schema.Types.ObjectId, required: true },
+                name: String,
                 price: { type: Number, required: true }, 
                 stockQuantity: { type: Number, required: true },
                 minStockLevel: { type: Number, required: true },
@@ -56,6 +57,9 @@ const seedDatabase = async () => {
             password: String,
             taxNumber: String,
             wholesaler: Boolean,
+            address: String,
+            phone: String,
+            wholesalerAccounts: [Object],
             employee: [Object],
             favorites: [mongoose.Schema.Types.ObjectId],
             products: [Object]
@@ -79,6 +83,8 @@ const seedDatabase = async () => {
                 password: hashPassword('1234'),
                 taxNumber: '1234567890',
                 wholesaler: true,
+                address: 'İstoç Toptancılar Çarşısı, 24. Ada No: 45, Bağcılar, İstanbul',
+                phone: '0212 555 4545',
                 employee: [defaultEmployee],
                 products: []
             },
@@ -88,7 +94,14 @@ const seedDatabase = async () => {
                 email: 'ahmet@bayi.com',
                 password: hashPassword('1234'),
                 wholesaler: false,
-                favorites: []
+                favorites: [],
+                wholesalerAccounts: [
+                    {
+                        wholesalerId: wholesalerId,
+                        creditLimit: 150000,
+                        currentDebt: 45000
+                    }
+                ]
             }
         ]);
         console.log('Kullanıcılar oluşturuldu.');
@@ -405,6 +418,7 @@ const seedDatabase = async () => {
                 image: prodData.image,
                 wholesalers: [{
                     usersID: wholesalerId,
+                    name: 'Vildan Toptan Ticaret',
                     price: prodData.price,
                     stockQuantity: prodData.stock,
                     minStockLevel: Math.ceil(prodData.stock * 0.1),

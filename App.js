@@ -9,6 +9,9 @@ import LoginModalComponent from './components/LoginModalComponent';
 import RegisterModalComponent from './components/RegisterModalComponent';
 import CategoryDetailScreen from './screens/Category/CategoryDetailScreen';
 import OrderHistoryScreen from './screens/OrderHistoryScreen';
+import CariAccountScreen from './screens/Profile/CariAccountScreen';
+import WholesalerDetailScreen from './screens/WholesalerDetailScreen';
+import PaymentApprovalsScreen from './screens/PremiumScreens/PaymentApprovalsScreen';
 
 const Stack = createStackNavigator();
 
@@ -68,6 +71,23 @@ const App = () => {
               name="OrderHistory"
               component={OrderHistoryScreen}
               options={{ headerTitle: 'Sipariş Geçmişi' }}
+            />
+            <Stack.Screen
+              name="CariAccount"
+              component={CariAccountScreen}
+              options={{ headerTitle: 'Cari Hesaplarım' }}
+            />
+            <Stack.Screen
+              name="WholesalerDetail"
+              component={WholesalerDetailScreen}
+              options={({ route }) => ({
+                headerTitle: route.params?.wholesalerName || 'Tedarikçi Mağazası',
+              })}
+            />
+            <Stack.Screen
+              name="PaymentApprovals"
+              component={PaymentApprovalsScreen}
+              options={{ headerTitle: 'Ödeme Onayları' }}
             />
           </Stack.Navigator>
 

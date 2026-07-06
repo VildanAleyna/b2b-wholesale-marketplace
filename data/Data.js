@@ -243,7 +243,66 @@ export const fetchFavoriteProducts = async (userId) => {
         return response.data; // API'den gelen verinin doğru formatta olduğunu doğrulayın
     } catch (error) {
         console.error('Favori ürünler alınamadı:', error);
-        Alert.alert('Hata', 'Favori ürünler yüklenirken bir hata oluştu.');
         return []; // Hata durumunda boş bir dizi döndür
+    }
+};
+
+// Toptancı detaylarını alma fonksiyonu
+export const fetchWholesalerDetails = async (wholesalerId) => {
+    try {
+        const response = await axios.get(`${API_URL}/wholesalers/${wholesalerId}`);
+        return response.data;
+    } catch (error) {
+        console.error('Toptancı bilgileri alınamadı:', error);
+        return null;
+    }
+};
+
+// Kullanıcının cari hesaplarını alma fonksiyonu
+export const fetchUserCariAccounts = async (userId) => {
+    try {
+        const response = await axios.get(`${API_URL}/users/${userId}/accounts`);
+        return response.data;
+    } catch (error) {
+        console.error('Cari hesaplar alınamadı:', error);
+        return [];
+    }
+};
+
+// Ödeme bildirimi gönderme fonksiyonu (Bayi)
+export const submitPaymentNotification = async (customerId, wholesalerId, amount, receiptFile) => {
+    try {
+        const response = await axios.post(`${API_URL}/payments/notify`, {
+            customerId,
+            wholesalerId,
+            amount,
+            receiptFile
+        });
+        return response.data;
+    } catch (error) {
+        console.error('Ödeme bildirimi gönderilemedi:', error);
+        return null;
+    }
+};
+
+// Toptancıya gelen ödeme bildirimlerini alma fonksiyonu
+export const fetchWholesalerPayments = async (wholesalerId) => {
+    try {
+        const response = await axios.get(`${API_URL}/wholesalers/${wholesalerId}/payments`);
+        return response.data;
+    } catch (error) {
+        console.error('Ödeme bildirimleri alınamadı:', error);
+        return [];
+    }
+};
+
+// Ödeme bildirimi durumunu güncelleme (Onaylama / Reddetme)
+export const updatePaymentStatus = async (paymentId, status) => {
+    try {
+        const response = await axios.put(`${API_URL}/payments/${paymentId}/status`, { status });
+        return response.data;
+    } catch (error) {
+        console.error('Ödeme durumu güncellenemedi:', error);
+        return null;
     }
 };
