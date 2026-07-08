@@ -1,11 +1,11 @@
 const express = require('express');
-const { authenticateToken } = require('../utils/security');
+const { authenticateToken, authorizeSelfParam, authorizeWholesalerParam } = require('../utils/security');
 
 const createInsightRoutes = ({ buildWholesalerInsights, buildCustomerInsights }) => {
     const router = express.Router();
     router.use(authenticateToken);
 
-    router.get('/wholesalers/:id/insights', async (req, res) => {
+    router.get('/wholesalers/:id/insights', authorizeWholesalerParam('id'), async (req, res) => {
         try {
             const insights = await buildWholesalerInsights(req.params.id);
             res.json(insights);
@@ -14,7 +14,7 @@ const createInsightRoutes = ({ buildWholesalerInsights, buildCustomerInsights })
         }
     });
 
-    router.get('/users/:id/insights', async (req, res) => {
+    router.get('/users/:id/insights', authorizeSelfParam('id'), async (req, res) => {
         try {
             const insights = await buildCustomerInsights(req.params.id);
             if (!insights) {

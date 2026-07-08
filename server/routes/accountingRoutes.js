@@ -2,13 +2,13 @@ const express = require('express');
 const mongoose = require('mongoose');
 const { User, PaymentNotification } = require('../models');
 const { sanitizeUser } = require('../utils/serializers');
-const { authenticateToken } = require('../utils/security');
+const { authenticateToken, authorizeSelfParam, authorizeWholesalerParam } = require('../utils/security');
 
 const createAccountingRoutes = () => {
     const router = express.Router();
     router.use(authenticateToken);
 
-    router.get('/users/:userId/accounts', async (req, res) => {
+    router.get('/users/:userId/accounts', authorizeSelfParam('userId'), async (req, res) => {
         try {
             const user = await User.findById(req.params.userId).populate('wholesalerAccounts.wholesalerId', 'name email address phone taxNumber');
             if (!user) {
@@ -20,7 +20,7 @@ const createAccountingRoutes = () => {
         }
     });
 
-    router.get('/wholesalers/:id/accounts', async (req, res) => {
+    router.get('/wholesalers/:id/accounts', authorizeWholesalerParam('id'), async (req, res) => {
         try {
             const wholesalerId = new mongoose.Types.ObjectId(req.params.id);
             const customers = await User.find({
@@ -68,7 +68,7 @@ const createAccountingRoutes = () => {
         }
     });
 
-    router.get('/users/:userId/statement', async (req, res) => {
+    router.get('/users/:userId/statement', authorizeSelfParam('userId'), async (req, res) => {
         try {
             const user = await User.findById(req.params.userId);
             if (!user) {

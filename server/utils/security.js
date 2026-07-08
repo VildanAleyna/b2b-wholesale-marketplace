@@ -42,10 +42,54 @@ const authenticateToken = (req, res, next) => {
     }
 };
 
+const normalizeId = (value) => value?.toString();
+
+const hasAccountType = (req, allowedTypes) => allowedTypes.includes(req.auth?.accountType);
+
+const authorizeSelfParam = (paramName) => (req, res, next) => {
+    if (normalizeId(req.auth?.userId) !== normalizeId(req.params[paramName])) {
+        return res.status(403).json({ message: 'You are not authorized to access this resource.' });
+    }
+
+    next();
+};
+
+const authorizeWholesalerParam = (paramName) => (req, res, next) => {
+    if (!hasAccountType(req, ['wholesalerAdmin', 'employee'])) {
+        return res.status(403).json({ message: 'Wholesaler access is required.' });
+    }
+
+    if (normalizeId(req.auth?.userId) !== normalizeId(req.params[paramName])) {
+        return res.status(403).json({ message: 'You are not authorized to access this wholesaler resource.' });
+    }
+
+    next();
+};
+
+const requireWholesalerAdmin = (req, res, next) => {
+    if (req.auth?.accountType !== 'wholesalerAdmin') {
+        return res.status(403).json({ message: 'Wholesaler admin access is required.' });
+    }
+
+    next();
+};
+
+const authorizeCustomerParam = (paramName) => (req, res, next) => {
+    if (req.auth?.accountType !== 'customer') {
+        return res.status(403).json({ message: 'Customer access is required.' });
+    }
+
+    return authorizeSelfParam(paramName)(req, res, next);
+};
+
 module.exports = {
     hashPassword,
     comparePassword,
     createAuthToken,
     verifyAuthToken,
-    authenticateToken
+    authenticateToken,
+    authorizeSelfParam,
+    authorizeCustomerParam,
+    authorizeWholesalerParam,
+    requireWholesalerAdmin
 };

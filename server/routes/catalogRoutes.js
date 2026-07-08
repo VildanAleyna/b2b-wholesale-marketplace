@@ -1,9 +1,11 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const { Product, User, Category, Model, Brand } = require('../models');
+const { authenticateToken, requireWholesalerAdmin } = require('../utils/security');
 
 const createCatalogRoutes = () => {
     const router = express.Router();
+    const requireCatalogWriteAccess = [authenticateToken, requireWholesalerAdmin];
 
     router.get('/categories', async (req, res) => {
         try {
@@ -14,7 +16,7 @@ const createCatalogRoutes = () => {
         }
     });
 
-    router.post('/categories', async (req, res) => {
+    router.post('/categories', requireCatalogWriteAccess, async (req, res) => {
         try {
             const { name, image, modelIds } = req.body;
             const newCategory = new Category({ name, modelIds, image });
@@ -46,7 +48,7 @@ const createCatalogRoutes = () => {
         }
     });
 
-    router.post('/models', async (req, res) => {
+    router.post('/models', requireCatalogWriteAccess, async (req, res) => {
         try {
             const { name, brandIds } = req.body;
             const newModel = new Model({ name, brandIds });
@@ -78,7 +80,7 @@ const createCatalogRoutes = () => {
         }
     });
 
-    router.post('/brands', async (req, res) => {
+    router.post('/brands', requireCatalogWriteAccess, async (req, res) => {
         try {
             const { name, productIds } = req.body;
             const newBrand = new Brand({ name, productIds });
@@ -101,7 +103,7 @@ const createCatalogRoutes = () => {
         }
     });
 
-    router.put('/brands/:id', async (req, res) => {
+    router.put('/brands/:id', requireCatalogWriteAccess, async (req, res) => {
         try {
             const updatedBrand = await Brand.findByIdAndUpdate(
                 req.params.id,
@@ -126,12 +128,17 @@ const createCatalogRoutes = () => {
         }
     });
 
-    router.post('/products', async (req, res) => {
+    router.post('/products', requireCatalogWriteAccess, async (req, res) => {
         try {
             const { title, categoryId, modelId, brandId, image, wholesalers } = req.body;
 
             if (!title || !categoryId || !modelId || !brandId || !image || !wholesalers) {
                 return res.status(400).json({ message: 'Eksik veri.' });
+            }
+
+            const firstWholesaler = wholesalers[0];
+            if (firstWholesaler?.usersID?.toString() !== req.auth.userId) {
+                return res.status(403).json({ message: 'You can only create products for your own wholesaler account.' });
             }
 
             const newProduct = new Product({
@@ -150,7 +157,6 @@ const createCatalogRoutes = () => {
             });
 
             const result = await newProduct.save();
-            const firstWholesaler = wholesalers[0];
             if (firstWholesaler?.usersID) {
                 await User.findByIdAndUpdate(firstWholesaler.usersID, {
                     $addToSet: {
@@ -181,8 +187,18 @@ const createCatalogRoutes = () => {
         }
     });
 
-    router.put('/products/:id', async (req, res) => {
+    router.put('/products/:id', requireCatalogWriteAccess, async (req, res) => {
         try {
+            const existingProduct = await Product.findById(req.params.id);
+            if (!existingProduct) {
+                return res.status(404).json({ message: 'Urun bulunamadi.' });
+            }
+
+            const existingWholesalerId = existingProduct.wholesalers?.[0]?.usersID?.toString();
+            if (existingWholesalerId && existingWholesalerId !== req.auth.userId) {
+                return res.status(403).json({ message: 'You can only update products that belong to your wholesaler account.' });
+            }
+
             let update = req.body;
             const wholesalerUpdates = {};
             if (req.body.price !== undefined) {
@@ -199,9 +215,6 @@ const createCatalogRoutes = () => {
             }
 
             const product = await Product.findByIdAndUpdate(req.params.id, update, { new: true });
-            if (!product) {
-                return res.status(404).json({ message: 'Urun bulunamadi.' });
-            }
             if (Object.keys(wholesalerUpdates).length > 0) {
                 const wholesalerId = product.wholesalers?.[0]?.usersID;
                 if (wholesalerId) {
@@ -223,12 +236,17 @@ const createCatalogRoutes = () => {
         }
     });
 
-    router.delete('/products/:id', async (req, res) => {
+    router.delete('/products/:id', requireCatalogWriteAccess, async (req, res) => {
         try {
-            const product = await Product.findByIdAndDelete(req.params.id);
+            const product = await Product.findById(req.params.id);
             if (!product) {
                 return res.status(404).json({ message: 'Urun bulunamadi.' });
             }
+            const productWholesalerId = product.wholesalers?.[0]?.usersID?.toString();
+            if (productWholesalerId && productWholesalerId !== req.auth.userId) {
+                return res.status(403).json({ message: 'You can only delete products that belong to your wholesaler account.' });
+            }
+            await Product.findByIdAndDelete(req.params.id);
             res.json({ message: 'Urun silindi.' });
         } catch (error) {
             res.status(500).json({ message: 'Sunucu hatasi.' });

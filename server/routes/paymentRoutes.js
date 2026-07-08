@@ -1,6 +1,6 @@
 const express = require('express');
 const { PaymentNotification, User } = require('../models');
-const { authenticateToken } = require('../utils/security');
+const { authenticateToken, authorizeWholesalerParam } = require('../utils/security');
 
 const createPaymentRoutes = () => {
     const router = express.Router();
@@ -8,6 +8,10 @@ const createPaymentRoutes = () => {
 
     router.post('/payments/notify', async (req, res) => {
         const { customerId, wholesalerId, amount, receiptFile } = req.body;
+        if (customerId?.toString() !== req.auth.userId) {
+            return res.status(403).json({ message: 'You can only create payment notifications for your own account.' });
+        }
+
         try {
             const newNotification = await PaymentNotification.create({
                 customerId,
@@ -22,7 +26,7 @@ const createPaymentRoutes = () => {
         }
     });
 
-    router.get('/wholesalers/:id/payments', async (req, res) => {
+    router.get('/wholesalers/:id/payments', authorizeWholesalerParam('id'), async (req, res) => {
         try {
             const payments = await PaymentNotification.find({ wholesalerId: req.params.id })
                 .populate('customerId', 'name email taxNumber')
@@ -39,6 +43,10 @@ const createPaymentRoutes = () => {
             const payment = await PaymentNotification.findById(req.params.id);
             if (!payment) {
                 return res.status(404).json({ message: 'Odeme bildirimi bulunamadi.' });
+            }
+
+            if (payment.wholesalerId.toString() !== req.auth.userId) {
+                return res.status(403).json({ message: 'You can only update payments assigned to your wholesaler account.' });
             }
 
             if (payment.status !== 'Pending') {

@@ -2,13 +2,13 @@ const express = require('express');
 const mongoose = require('mongoose');
 const { User } = require('../models');
 const { sanitizeUser } = require('../utils/serializers');
-const { authenticateToken } = require('../utils/security');
+const { authenticateToken, authorizeSelfParam, authorizeWholesalerParam } = require('../utils/security');
 
 const createOrderRoutes = () => {
     const router = express.Router();
     router.use(authenticateToken);
 
-    router.post('/users/:userId/purchase', async (req, res) => {
+    router.post('/users/:userId/purchase', authorizeSelfParam('userId'), async (req, res) => {
         const { userId } = req.params;
         const { wholesalerId, totalAmount, paymentMethod, products } = req.body;
 
@@ -76,7 +76,7 @@ const createOrderRoutes = () => {
         }
     });
 
-    router.get('/users/:userId/orders', async (req, res) => {
+    router.get('/users/:userId/orders', authorizeSelfParam('userId'), async (req, res) => {
         try {
             const user = await User.findById(req.params.userId);
             if (!user) {
@@ -88,7 +88,7 @@ const createOrderRoutes = () => {
         }
     });
 
-    router.get('/wholesalers/:wholesalerId/orders', async (req, res) => {
+    router.get('/wholesalers/:wholesalerId/orders', authorizeWholesalerParam('wholesalerId'), async (req, res) => {
         try {
             const customers = await User.find({ 'orders.wholesalerId': req.params.wholesalerId });
 
@@ -134,6 +134,10 @@ const createOrderRoutes = () => {
                 return res.status(404).json({ message: 'Siparis bulunamadi.' });
             }
 
+            if (order.wholesalerId?.toString() !== req.auth.userId) {
+                return res.status(403).json({ message: 'You can only update orders assigned to your wholesaler account.' });
+            }
+
             order.status = status;
             if (trackingNumber !== undefined) {
                 order.trackingNumber = trackingNumber;
@@ -148,7 +152,7 @@ const createOrderRoutes = () => {
         }
     });
 
-    router.put('/customers/:customerId/orders/:orderId/rate', async (req, res) => {
+    router.put('/customers/:customerId/orders/:orderId/rate', authorizeSelfParam('customerId'), async (req, res) => {
         const { customerId, orderId } = req.params;
         const { rating, review } = req.body;
 

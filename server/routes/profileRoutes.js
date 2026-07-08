@@ -2,11 +2,13 @@ const express = require('express');
 const mongoose = require('mongoose');
 const { User, Product } = require('../models');
 const { sanitizeUser } = require('../utils/serializers');
+const { authenticateToken, authorizeSelfParam, authorizeWholesalerParam } = require('../utils/security');
 
 const createProfileRoutes = ({ hashPassword }) => {
     const router = express.Router();
+    router.use(authenticateToken);
 
-    router.put('/users/:id', async (req, res) => {
+    router.put('/users/:id', authorizeSelfParam('id'), async (req, res) => {
         const updatedUser = req.body;
 
         if (updatedUser.password) {
@@ -31,16 +33,7 @@ const createProfileRoutes = ({ hashPassword }) => {
         }
     });
 
-    router.get('/users', async (req, res) => {
-        try {
-            const users = await User.find();
-            res.json(users.map(sanitizeUser));
-        } catch (error) {
-            res.status(500).json({ message: 'Kullanicilar alinamadi.' });
-        }
-    });
-
-    router.get('/users/:id', async (req, res) => {
+    router.get('/users/:id', authorizeSelfParam('id'), async (req, res) => {
         try {
             const user = await User.findById(req.params.id);
             if (!user) {
@@ -52,7 +45,7 @@ const createProfileRoutes = ({ hashPassword }) => {
         }
     });
 
-    router.get('/users/:userId/favorites', async (req, res) => {
+    router.get('/users/:userId/favorites', authorizeSelfParam('userId'), async (req, res) => {
         try {
             const user = await User.findById(req.params.userId).populate('favorites');
             if (!user) {
@@ -66,7 +59,7 @@ const createProfileRoutes = ({ hashPassword }) => {
         }
     });
 
-    router.put('/users/:id/favorites/add', async (req, res) => {
+    router.put('/users/:id/favorites/add', authorizeSelfParam('id'), async (req, res) => {
         try {
             const user = await User.findByIdAndUpdate(
                 req.params.id,
@@ -84,7 +77,7 @@ const createProfileRoutes = ({ hashPassword }) => {
         }
     });
 
-    router.put('/users/:id/favorites/remove', async (req, res) => {
+    router.put('/users/:id/favorites/remove', authorizeSelfParam('id'), async (req, res) => {
         try {
             const user = await User.findByIdAndUpdate(
                 req.params.id,
@@ -116,7 +109,7 @@ const createProfileRoutes = ({ hashPassword }) => {
         }
     });
 
-    router.put('/users/:id/products', async (req, res) => {
+    router.put('/users/:id/products', authorizeWholesalerParam('id'), async (req, res) => {
         const { productId, price, stockQuantity, minStockLevel } = req.body;
 
         try {
@@ -158,7 +151,7 @@ const createProfileRoutes = ({ hashPassword }) => {
         }
     });
 
-    router.put('/users/:userId/profile', async (req, res) => {
+    router.put('/users/:userId/profile', authorizeSelfParam('userId'), async (req, res) => {
         const { companyName, authorizedPerson, taxNumber, taxOffice, phone, address } = req.body;
 
         try {
@@ -182,7 +175,7 @@ const createProfileRoutes = ({ hashPassword }) => {
         }
     });
 
-    router.put('/users/:userId/settings', async (req, res) => {
+    router.put('/users/:userId/settings', authorizeSelfParam('userId'), async (req, res) => {
         const { notificationEmail, notificationLimitWarning, newPassword } = req.body;
 
         try {

@@ -1,13 +1,13 @@
 const express = require('express');
 const { User } = require('../models');
 const { sanitizeEmployee } = require('../utils/serializers');
-const { authenticateToken } = require('../utils/security');
+const { authenticateToken, authorizeWholesalerParam, requireWholesalerAdmin } = require('../utils/security');
 
 const createEmployeeRoutes = ({ hashPassword }) => {
     const router = express.Router();
     router.use(authenticateToken);
 
-    router.get('/wholesalers/:wholesalerId/employees', async (req, res) => {
+    router.get('/wholesalers/:wholesalerId/employees', authorizeWholesalerParam('wholesalerId'), async (req, res) => {
         try {
             const user = await User.findById(req.params.wholesalerId);
             if (!user) {
@@ -19,7 +19,7 @@ const createEmployeeRoutes = ({ hashPassword }) => {
         }
     });
 
-    router.post('/wholesalers/:wholesalerId/employees', async (req, res) => {
+    router.post('/wholesalers/:wholesalerId/employees', authorizeWholesalerParam('wholesalerId'), requireWholesalerAdmin, async (req, res) => {
         const { name, role, password } = req.body;
 
         if (!name || !role || !password) {
@@ -53,7 +53,7 @@ const createEmployeeRoutes = ({ hashPassword }) => {
         }
     });
 
-    router.delete('/wholesalers/:wholesalerId/employees/:employeeName', async (req, res) => {
+    router.delete('/wholesalers/:wholesalerId/employees/:employeeName', authorizeWholesalerParam('wholesalerId'), requireWholesalerAdmin, async (req, res) => {
         const { wholesalerId, employeeName } = req.params;
 
         try {

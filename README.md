@@ -11,7 +11,7 @@ The application was designed as a mobile-first Expo project and also supports we
 
 This project is built for portfolio and demo purposes. It includes realistic business flows, role-based screens, and seeded demo data, but it is not configured as a production-ready system yet.
 
-Authentication uses bcrypt password hashing and JWT-based session tokens. Further production-level improvements such as stricter authorization middleware, refresh tokens, rate limiting, audit logging, and secure deployment settings are listed as future improvements.
+Authentication uses bcrypt password hashing and JWT-based session tokens. Protected routes also include basic ownership checks for user and wholesaler resources. Further production-level improvements such as finer-grained role permissions, refresh tokens, rate limiting, audit logging, and secure deployment settings are listed as future improvements.
 
 ## Overview
 
@@ -81,6 +81,7 @@ Sales employees can:
 - Single login flow for dealers, wholesaler admins, and employees
 - JWT-based authentication
 - bcrypt password hashing
+- Basic route-level authorization checks
 - Role-based navigation
 - Product, category, cart, and favorites flows
 - Dealer order history
@@ -358,7 +359,7 @@ The project currently includes the main business flows required for a B2B wholes
 Possible next improvements:
 
 - Automated tests
-- Stricter route-level authorization checks
+- Finer-grained role permission rules
 - Refresh token flow
 - Rate limiting and audit logging
 - Real payment provider integration
