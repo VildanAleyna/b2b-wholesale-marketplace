@@ -6,8 +6,9 @@ const { authenticateToken, authorizeWholesalerParam, requireWholesalerAdmin } = 
 const createEmployeeRoutes = ({ hashPassword }) => {
     const router = express.Router();
     router.use(authenticateToken);
+    const allowedEmployeeRoles = ['Depo Görevlisi', 'Depo Gorevlisi', 'Muhasebe', 'Satış Temsilcisi', 'Satis Temsilcisi'];
 
-    router.get('/wholesalers/:wholesalerId/employees', authorizeWholesalerParam('wholesalerId'), async (req, res) => {
+    router.get('/wholesalers/:wholesalerId/employees', authorizeWholesalerParam('wholesalerId'), requireWholesalerAdmin, async (req, res) => {
         try {
             const user = await User.findById(req.params.wholesalerId);
             if (!user) {
@@ -24,6 +25,10 @@ const createEmployeeRoutes = ({ hashPassword }) => {
 
         if (!name || !role || !password) {
             return res.status(400).json({ message: 'Isim, rol ve sifre zorunludur.' });
+        }
+
+        if (!allowedEmployeeRoles.includes(role)) {
+            return res.status(400).json({ message: 'Gecersiz personel rolu.' });
         }
 
         try {

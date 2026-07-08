@@ -1,6 +1,7 @@
 const express = require('express');
+const mongoose = require('mongoose');
 const { PaymentNotification, User } = require('../models');
-const { authenticateToken, authorizeWholesalerParam } = require('../utils/security');
+const { authenticateToken, authorizeWholesalerParam, requireWholesalerRole } = require('../utils/security');
 
 const createPaymentRoutes = () => {
     const router = express.Router();
@@ -12,11 +13,16 @@ const createPaymentRoutes = () => {
             return res.status(403).json({ message: 'You can only create payment notifications for your own account.' });
         }
 
+        const numericAmount = Number(amount);
+        if (!wholesalerId || !mongoose.Types.ObjectId.isValid(wholesalerId) || !Number.isFinite(numericAmount) || numericAmount <= 0 || !receiptFile) {
+            return res.status(400).json({ message: 'Gecerli toptanci, tutar ve dekont bilgisi gereklidir.' });
+        }
+
         try {
             const newNotification = await PaymentNotification.create({
                 customerId,
                 wholesalerId,
-                amount,
+                amount: numericAmount,
                 receiptFile,
                 status: 'Pending'
             });
@@ -26,7 +32,7 @@ const createPaymentRoutes = () => {
         }
     });
 
-    router.get('/wholesalers/:id/payments', authorizeWholesalerParam('id'), async (req, res) => {
+    router.get('/wholesalers/:id/payments', authorizeWholesalerParam('id'), requireWholesalerRole(['accounting']), async (req, res) => {
         try {
             const payments = await PaymentNotification.find({ wholesalerId: req.params.id })
                 .populate('customerId', 'name email taxNumber')
@@ -37,9 +43,13 @@ const createPaymentRoutes = () => {
         }
     });
 
-    router.put('/payments/:id/status', async (req, res) => {
+    router.put('/payments/:id/status', requireWholesalerRole(['accounting']), async (req, res) => {
         const { status } = req.body;
         try {
+            if (!['Approved', 'Rejected'].includes(status)) {
+                return res.status(400).json({ message: 'Gecersiz odeme durumu.' });
+            }
+
             const payment = await PaymentNotification.findById(req.params.id);
             if (!payment) {
                 return res.status(404).json({ message: 'Odeme bildirimi bulunamadi.' });

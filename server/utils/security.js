@@ -74,6 +74,40 @@ const requireWholesalerAdmin = (req, res, next) => {
     next();
 };
 
+const normalizeRole = (role) => (role || '')
+    .toString()
+    .toLocaleLowerCase('tr-TR')
+    .replaceAll('ı', 'i')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '');
+
+const roleAliases = {
+    warehouse: ['depo gorevlisi', 'warehouse'],
+    accounting: ['muhasebe', 'accounting'],
+    sales: ['satis temsilcisi', 'sales'],
+    admin: ['admin']
+};
+
+const requireWholesalerRole = (allowedRoles) => (req, res, next) => {
+    if (req.auth?.accountType === 'wholesalerAdmin') {
+        return next();
+    }
+
+    if (req.auth?.accountType !== 'employee') {
+        return res.status(403).json({ message: 'Wholesaler employee access is required.' });
+    }
+
+    const normalizedEmployeeRole = normalizeRole(req.auth?.employeeRole);
+    const allowedAliases = allowedRoles.flatMap(role => roleAliases[role] || [role]);
+    const isAllowed = allowedAliases.map(normalizeRole).includes(normalizedEmployeeRole);
+
+    if (!isAllowed) {
+        return res.status(403).json({ message: 'This employee role is not allowed for this operation.' });
+    }
+
+    next();
+};
+
 const authorizeCustomerParam = (paramName) => (req, res, next) => {
     if (req.auth?.accountType !== 'customer') {
         return res.status(403).json({ message: 'Customer access is required.' });
@@ -91,5 +125,6 @@ module.exports = {
     authorizeSelfParam,
     authorizeCustomerParam,
     authorizeWholesalerParam,
-    requireWholesalerAdmin
+    requireWholesalerAdmin,
+    requireWholesalerRole
 };

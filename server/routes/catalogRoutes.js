@@ -6,6 +6,15 @@ const { authenticateToken, requireWholesalerAdmin } = require('../utils/security
 const createCatalogRoutes = () => {
     const router = express.Router();
     const requireCatalogWriteAccess = [authenticateToken, requireWholesalerAdmin];
+    const isValidObjectId = (value) => mongoose.Types.ObjectId.isValid(value);
+    const toNonNegativeNumber = (value) => {
+        const numericValue = Number(value);
+        return Number.isFinite(numericValue) && numericValue >= 0 ? numericValue : null;
+    };
+    const toPositiveNumber = (value) => {
+        const numericValue = Number(value);
+        return Number.isFinite(numericValue) && numericValue > 0 ? numericValue : null;
+    };
 
     router.get('/categories', async (req, res) => {
         try {
@@ -130,15 +139,28 @@ const createCatalogRoutes = () => {
 
     router.post('/products', requireCatalogWriteAccess, async (req, res) => {
         try {
-            const { title, categoryId, modelId, brandId, image, wholesalers } = req.body;
+            const { title, categoryId, modelId, brandId, image, wholesalers, minOrderQuantity } = req.body;
 
-            if (!title || !categoryId || !modelId || !brandId || !image || !wholesalers) {
+            if (!title || !categoryId || !modelId || !brandId || !image || !Array.isArray(wholesalers) || wholesalers.length === 0) {
                 return res.status(400).json({ message: 'Eksik veri.' });
+            }
+
+            if (![categoryId, modelId, brandId].every(isValidObjectId)) {
+                return res.status(400).json({ message: 'Gecersiz katalog ID.' });
             }
 
             const firstWholesaler = wholesalers[0];
             if (firstWholesaler?.usersID?.toString() !== req.auth.userId) {
                 return res.status(403).json({ message: 'You can only create products for your own wholesaler account.' });
+            }
+
+            const price = toNonNegativeNumber(firstWholesaler.price);
+            const stockQuantity = toNonNegativeNumber(firstWholesaler.stockQuantity);
+            const minStockLevel = toNonNegativeNumber(firstWholesaler.minStockLevel);
+            const normalizedMinOrderQuantity = minOrderQuantity === undefined ? 1 : toPositiveNumber(minOrderQuantity);
+
+            if ([price, stockQuantity, minStockLevel, normalizedMinOrderQuantity].some(value => value === null)) {
+                return res.status(400).json({ message: 'Fiyat, stok ve minimum siparis alanlari gecerli sayi olmalidir.' });
             }
 
             const newProduct = new Product({
@@ -147,28 +169,28 @@ const createCatalogRoutes = () => {
                 modelId: new mongoose.Types.ObjectId(modelId),
                 brandId: new mongoose.Types.ObjectId(brandId),
                 image,
-                wholesalers: wholesalers.map(wholesaler => ({
-                    usersID: new mongoose.Types.ObjectId(wholesaler.usersID),
-                    price: wholesaler.price,
-                    stockQuantity: wholesaler.stockQuantity,
-                    minStockLevel: wholesaler.minStockLevel,
-                    description: wholesaler.description
-                }))
+                minOrderQuantity: normalizedMinOrderQuantity || 1,
+                wholesalers: [{
+                    usersID: new mongoose.Types.ObjectId(req.auth.userId),
+                    name: firstWholesaler.name,
+                    price,
+                    stockQuantity,
+                    minStockLevel,
+                    description: firstWholesaler.description
+                }]
             });
 
             const result = await newProduct.save();
-            if (firstWholesaler?.usersID) {
-                await User.findByIdAndUpdate(firstWholesaler.usersID, {
-                    $addToSet: {
-                        products: {
-                            productID: result._id,
-                            price: firstWholesaler.price,
-                            stockQuantity: firstWholesaler.stockQuantity,
-                            minStockLevel: firstWholesaler.minStockLevel
-                        }
+            await User.findByIdAndUpdate(req.auth.userId, {
+                $addToSet: {
+                    products: {
+                        productID: result._id,
+                        price,
+                        stockQuantity,
+                        minStockLevel
                     }
-                });
-            }
+                }
+            });
             res.status(201).json(result);
         } catch (error) {
             res.status(500).json({ message: 'Urun eklenemedi.', error: error.message });
@@ -195,40 +217,55 @@ const createCatalogRoutes = () => {
             }
 
             const existingWholesalerId = existingProduct.wholesalers?.[0]?.usersID?.toString();
-            if (existingWholesalerId && existingWholesalerId !== req.auth.userId) {
+            if (!existingWholesalerId || existingWholesalerId !== req.auth.userId) {
                 return res.status(403).json({ message: 'You can only update products that belong to your wholesaler account.' });
             }
 
-            let update = req.body;
             const wholesalerUpdates = {};
             if (req.body.price !== undefined) {
-                wholesalerUpdates['wholesalers.0.price'] = Number(req.body.price);
+                const price = toNonNegativeNumber(req.body.price);
+                if (price === null) {
+                    return res.status(400).json({ message: 'Fiyat gecerli bir sayi olmalidir.' });
+                }
+                wholesalerUpdates['wholesalers.0.price'] = price;
             }
             if (req.body.stockQuantity !== undefined) {
-                wholesalerUpdates['wholesalers.0.stockQuantity'] = Number(req.body.stockQuantity);
+                const stockQuantity = toNonNegativeNumber(req.body.stockQuantity);
+                if (stockQuantity === null) {
+                    return res.status(400).json({ message: 'Stok gecerli bir sayi olmalidir.' });
+                }
+                wholesalerUpdates['wholesalers.0.stockQuantity'] = stockQuantity;
             }
             if (req.body.minStockLevel !== undefined) {
-                wholesalerUpdates['wholesalers.0.minStockLevel'] = Number(req.body.minStockLevel);
-            }
-            if (Object.keys(wholesalerUpdates).length > 0) {
-                update = { $set: wholesalerUpdates };
+                const minStockLevel = toNonNegativeNumber(req.body.minStockLevel);
+                if (minStockLevel === null) {
+                    return res.status(400).json({ message: 'Minimum stok gecerli bir sayi olmalidir.' });
+                }
+                wholesalerUpdates['wholesalers.0.minStockLevel'] = minStockLevel;
             }
 
-            const product = await Product.findByIdAndUpdate(req.params.id, update, { new: true });
-            if (Object.keys(wholesalerUpdates).length > 0) {
-                const wholesalerId = product.wholesalers?.[0]?.usersID;
-                if (wholesalerId) {
-                    await User.updateOne(
-                        { _id: wholesalerId, 'products.productID': product._id },
-                        {
-                            $set: {
-                                'products.$.price': product.wholesalers[0].price,
-                                'products.$.stockQuantity': product.wholesalers[0].stockQuantity,
-                                'products.$.minStockLevel': product.wholesalers[0].minStockLevel
-                            }
+            if (Object.keys(wholesalerUpdates).length === 0) {
+                return res.status(400).json({ message: 'Guncellenecek gecerli stok alani bulunamadi.' });
+            }
+
+            const product = await Product.findByIdAndUpdate(
+                req.params.id,
+                { $set: wholesalerUpdates },
+                { new: true, runValidators: true }
+            );
+
+            const wholesalerId = product.wholesalers?.[0]?.usersID;
+            if (wholesalerId) {
+                await User.updateOne(
+                    { _id: wholesalerId, 'products.productID': product._id },
+                    {
+                        $set: {
+                            'products.$.price': product.wholesalers[0].price,
+                            'products.$.stockQuantity': product.wholesalers[0].stockQuantity,
+                            'products.$.minStockLevel': product.wholesalers[0].minStockLevel
                         }
-                    );
-                }
+                    }
+                );
             }
             res.json(product);
         } catch (error) {
@@ -243,7 +280,7 @@ const createCatalogRoutes = () => {
                 return res.status(404).json({ message: 'Urun bulunamadi.' });
             }
             const productWholesalerId = product.wholesalers?.[0]?.usersID?.toString();
-            if (productWholesalerId && productWholesalerId !== req.auth.userId) {
+            if (!productWholesalerId || productWholesalerId !== req.auth.userId) {
                 return res.status(403).json({ message: 'You can only delete products that belong to your wholesaler account.' });
             }
             await Product.findByIdAndDelete(req.params.id);

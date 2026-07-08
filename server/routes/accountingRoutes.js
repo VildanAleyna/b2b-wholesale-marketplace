@@ -2,7 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const { User, PaymentNotification } = require('../models');
 const { sanitizeUser } = require('../utils/serializers');
-const { authenticateToken, authorizeSelfParam, authorizeWholesalerParam } = require('../utils/security');
+const { authenticateToken, authorizeSelfParam, authorizeWholesalerParam, requireWholesalerRole } = require('../utils/security');
 
 const createAccountingRoutes = () => {
     const router = express.Router();
@@ -20,7 +20,7 @@ const createAccountingRoutes = () => {
         }
     });
 
-    router.get('/wholesalers/:id/accounts', authorizeWholesalerParam('id'), async (req, res) => {
+    router.get('/wholesalers/:id/accounts', authorizeWholesalerParam('id'), requireWholesalerRole(['accounting']), async (req, res) => {
         try {
             const wholesalerId = new mongoose.Types.ObjectId(req.params.id);
             const customers = await User.find({

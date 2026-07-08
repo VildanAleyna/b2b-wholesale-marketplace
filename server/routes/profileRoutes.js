@@ -9,27 +9,45 @@ const createProfileRoutes = ({ hashPassword }) => {
     router.use(authenticateToken);
 
     router.put('/users/:id', authorizeSelfParam('id'), async (req, res) => {
-        const updatedUser = req.body;
-
-        if (updatedUser.password) {
-            updatedUser.password = hashPassword(updatedUser.password);
-        }
-
-        if (updatedUser.wholesaler !== undefined) {
-            if (updatedUser.wholesaler) {
-                updatedUser.employee = updatedUser.employee || [];
-                updatedUser.favorites = undefined;
-            } else {
-                updatedUser.favorites = updatedUser.favorites || [];
-                updatedUser.employee = undefined;
-            }
-        }
-
         try {
-            const user = await User.findByIdAndUpdate(req.params.id, updatedUser, { new: true });
+            const allowedFields = [
+                'name',
+                'companyName',
+                'authorizedPerson',
+                'taxNumber',
+                'taxOffice',
+                'address',
+                'phone',
+                'notificationEmail',
+                'notificationLimitWarning'
+            ];
+            const updateFields = {};
+
+            allowedFields.forEach(field => {
+                if (req.body[field] !== undefined) {
+                    updateFields[field] = req.body[field];
+                }
+            });
+
+            if (req.body.password) {
+                updateFields.password = hashPassword(req.body.password);
+            }
+
+            if (Object.keys(updateFields).length === 0) {
+                return res.status(400).json({ message: 'Guncellenecek gecerli alan bulunamadi.' });
+            }
+
+            const user = await User.findByIdAndUpdate(
+                req.params.id,
+                { $set: updateFields },
+                { new: true, runValidators: true }
+            );
+            if (!user) {
+                return res.status(404).json({ message: 'Kullanici bulunamadi.' });
+            }
             res.json(sanitizeUser(user));
         } catch (error) {
-            res.status(500).json({ message: 'Kullanici guncellenemedi.', error });
+            res.status(500).json({ message: 'Kullanici guncellenemedi.', error: error.message });
         }
     });
 
@@ -61,6 +79,10 @@ const createProfileRoutes = ({ hashPassword }) => {
 
     router.put('/users/:id/favorites/add', authorizeSelfParam('id'), async (req, res) => {
         try {
+            if (!mongoose.Types.ObjectId.isValid(req.body.productId)) {
+                return res.status(400).json({ message: 'Gecersiz urun ID.' });
+            }
+
             const user = await User.findByIdAndUpdate(
                 req.params.id,
                 { $addToSet: { favorites: new mongoose.Types.ObjectId(req.body.productId) } },
@@ -79,6 +101,10 @@ const createProfileRoutes = ({ hashPassword }) => {
 
     router.put('/users/:id/favorites/remove', authorizeSelfParam('id'), async (req, res) => {
         try {
+            if (!mongoose.Types.ObjectId.isValid(req.body.productId)) {
+                return res.status(400).json({ message: 'Gecersiz urun ID.' });
+            }
+
             const user = await User.findByIdAndUpdate(
                 req.params.id,
                 { $pull: { favorites: new mongoose.Types.ObjectId(req.body.productId) } },
@@ -113,6 +139,17 @@ const createProfileRoutes = ({ hashPassword }) => {
         const { productId, price, stockQuantity, minStockLevel } = req.body;
 
         try {
+            if (!mongoose.Types.ObjectId.isValid(productId)) {
+                return res.status(400).json({ message: 'Gecersiz urun ID.' });
+            }
+
+            const numericPrice = Number(price);
+            const numericStock = Number(stockQuantity);
+            const numericMinStock = Number(minStockLevel);
+            if ([numericPrice, numericStock, numericMinStock].some(value => !Number.isFinite(value) || value < 0)) {
+                return res.status(400).json({ message: 'Fiyat ve stok alanlari gecerli sayi olmalidir.' });
+            }
+
             const user = await User.findById(req.params.id);
             if (!user) {
                 return res.status(404).json({ message: 'Kullanici bulunamadi.' });
@@ -120,9 +157,9 @@ const createProfileRoutes = ({ hashPassword }) => {
 
             user.products.push({
                 productID: new mongoose.Types.ObjectId(productId),
-                price,
-                stockQuantity,
-                minStockLevel
+                price: numericPrice,
+                stockQuantity: numericStock,
+                minStockLevel: numericMinStock
             });
 
             const updatedUser = await user.save();

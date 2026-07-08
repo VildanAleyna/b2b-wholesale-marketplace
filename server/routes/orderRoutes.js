@@ -1,8 +1,8 @@
 const express = require('express');
 const mongoose = require('mongoose');
-const { User } = require('../models');
+const { User, Product } = require('../models');
 const { sanitizeUser } = require('../utils/serializers');
-const { authenticateToken, authorizeSelfParam, authorizeWholesalerParam } = require('../utils/security');
+const { authenticateToken, authorizeSelfParam, authorizeWholesalerParam, requireWholesalerRole } = require('../utils/security');
 
 const createOrderRoutes = () => {
     const router = express.Router();
@@ -10,19 +10,83 @@ const createOrderRoutes = () => {
 
     router.post('/users/:userId/purchase', authorizeSelfParam('userId'), async (req, res) => {
         const { userId } = req.params;
-        const { wholesalerId, totalAmount, paymentMethod, products } = req.body;
+        const { wholesalerId, paymentMethod, products } = req.body;
 
         try {
+            if (!wholesalerId || !mongoose.Types.ObjectId.isValid(wholesalerId)) {
+                return res.status(400).json({ message: 'Gecerli toptanci ID gereklidir.' });
+            }
+
+            if (!Array.isArray(products) || products.length === 0) {
+                return res.status(400).json({ message: 'Siparis icin urun secilmelidir.' });
+            }
+
+            if (!['Cari', 'CreditCard'].includes(paymentMethod)) {
+                return res.status(400).json({ message: 'Gecersiz odeme yontemi.' });
+            }
+
             const user = await User.findById(userId);
             if (!user) {
                 return res.status(404).json({ message: 'Kullanici bulunamadi.' });
             }
 
-            if (paymentMethod === 'Cari') {
-                if (!wholesalerId) {
-                    return res.status(400).json({ message: 'Cari odemesi icin toptanci ID gereklidir.' });
+            const requestedItems = products.map(item => ({
+                productId: item._id || item.productId,
+                count: Number(item.count)
+            }));
+
+            if (requestedItems.some(item => !mongoose.Types.ObjectId.isValid(item.productId) || !Number.isInteger(item.count) || item.count <= 0)) {
+                return res.status(400).json({ message: 'Siparis urunleri ve adetleri gecersiz.' });
+            }
+
+            const productIds = requestedItems.map(item => new mongoose.Types.ObjectId(item.productId));
+            const productRecords = await Product.find({
+                _id: { $in: productIds },
+                'wholesalers.usersID': new mongoose.Types.ObjectId(wholesalerId)
+            });
+
+            if (productRecords.length !== requestedItems.length) {
+                return res.status(400).json({ message: 'Sepette bu toptanciya ait olmayan veya bulunamayan urun var.' });
+            }
+
+            const discountMultiplier = user.tier === 'Gold' ? 0.8 : user.tier === 'Silver' ? 0.9 : 1;
+            const orderProducts = [];
+            let discountedSubtotal = 0;
+
+            for (const item of requestedItems) {
+                const product = productRecords.find(record => record._id.toString() === item.productId.toString());
+                const wholesalerInfo = product.wholesalers.find(
+                    wholesaler => wholesaler.usersID.toString() === wholesalerId.toString()
+                );
+                const minOrderQuantity = product.minOrderQuantity || 1;
+
+                if (item.count < minOrderQuantity) {
+                    return res.status(400).json({ message: `${product.title} icin minimum siparis adedi ${minOrderQuantity}.` });
                 }
 
+                if (wholesalerInfo.stockQuantity < item.count) {
+                    return res.status(400).json({ message: `${product.title} icin yeterli stok yok.` });
+                }
+
+                const unitPrice = Math.round(wholesalerInfo.price * discountMultiplier);
+                discountedSubtotal += unitPrice * item.count;
+                orderProducts.push({
+                    product,
+                    wholesalerInfo,
+                    orderRow: {
+                        productId: product._id,
+                        title: product.title,
+                        image: product.image,
+                        price: unitPrice,
+                        count: item.count
+                    }
+                });
+            }
+
+            const isShippingFree = user.tier === 'Gold' || user.tier === 'Silver' || discountedSubtotal >= 5000;
+            const totalAmount = discountedSubtotal + (isShippingFree ? 0 : 250);
+
+            if (paymentMethod === 'Cari') {
                 const account = user.wholesalerAccounts.find(
                     acc => acc.wholesalerId.toString() === wholesalerId.toString()
                 );
@@ -49,20 +113,18 @@ const createOrderRoutes = () => {
             }
 
             const newOrder = {
-                products: products.map(p => ({
-                    productId: new mongoose.Types.ObjectId(p._id || p.productId),
-                    title: p.title,
-                    image: p.image,
-                    price: p.price,
-                    count: p.count
-                })),
+                products: orderProducts.map(item => item.orderRow),
                 totalAmount,
                 paymentMethod,
-                wholesalerId: wholesalerId ? new mongoose.Types.ObjectId(wholesalerId) : undefined,
+                wholesalerId: new mongoose.Types.ObjectId(wholesalerId),
                 wholesalerName,
                 status: 'Pending',
                 date: new Date()
             };
+
+            orderProducts.forEach(({ wholesalerInfo, orderRow }) => {
+                wholesalerInfo.stockQuantity -= orderRow.count;
+            });
 
             user.orders.push(newOrder);
 
@@ -70,6 +132,11 @@ const createOrderRoutes = () => {
             user.tier = totalSpent >= 100000 ? 'Gold' : totalSpent >= 20000 ? 'Silver' : 'Bronze';
 
             await user.save();
+            await Promise.all(orderProducts.map(({ product }) => product.save()));
+            await Promise.all(orderProducts.map(({ product, wholesalerInfo }) => User.updateOne(
+                { _id: wholesalerId, 'products.productID': product._id },
+                { $set: { 'products.$.stockQuantity': wholesalerInfo.stockQuantity } }
+            )));
             res.status(201).json({ message: 'Siparis basariyla olusturuldu.', user: sanitizeUser(user) });
         } catch (error) {
             res.status(500).json({ message: 'Siparis islenirken hata olustu.', error: error.message });
@@ -88,7 +155,7 @@ const createOrderRoutes = () => {
         }
     });
 
-    router.get('/wholesalers/:wholesalerId/orders', authorizeWholesalerParam('wholesalerId'), async (req, res) => {
+    router.get('/wholesalers/:wholesalerId/orders', authorizeWholesalerParam('wholesalerId'), requireWholesalerRole(['warehouse', 'sales']), async (req, res) => {
         try {
             const customers = await User.find({ 'orders.wholesalerId': req.params.wholesalerId });
 
@@ -119,11 +186,15 @@ const createOrderRoutes = () => {
         }
     });
 
-    router.put('/customers/:customerId/orders/:orderId/status', async (req, res) => {
+    router.put('/customers/:customerId/orders/:orderId/status', requireWholesalerRole(['warehouse']), async (req, res) => {
         const { customerId, orderId } = req.params;
         const { status, trackingNumber } = req.body;
 
         try {
+            if (!['Pending', 'Preparing', 'Shipped', 'Delivered'].includes(status)) {
+                return res.status(400).json({ message: 'Gecersiz siparis durumu.' });
+            }
+
             const customer = await User.findById(customerId);
             if (!customer) {
                 return res.status(404).json({ message: 'Musteri bulunamadi.' });
