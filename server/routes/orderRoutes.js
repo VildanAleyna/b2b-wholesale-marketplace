@@ -7,10 +7,20 @@ const { authenticateToken, authorizeSelfParam, authorizeWholesalerParam, require
 const createOrderRoutes = () => {
     const router = express.Router();
     router.use(authenticateToken);
+    const rollbackStockReservations = async (reservations) => {
+        await Promise.all(reservations.map(reservation => Product.updateOne(
+            {
+                _id: reservation.productId,
+                'wholesalers.usersID': reservation.wholesalerId
+            },
+            { $inc: { 'wholesalers.$.stockQuantity': reservation.count } }
+        )));
+    };
 
     router.post('/users/:userId/purchase', authorizeSelfParam('userId'), async (req, res) => {
         const { userId } = req.params;
         const { wholesalerId, paymentMethod, products } = req.body;
+        let stockReservations = [];
 
         try {
             if (!wholesalerId || !mongoose.Types.ObjectId.isValid(wholesalerId)) {
@@ -85,23 +95,21 @@ const createOrderRoutes = () => {
 
             const isShippingFree = user.tier === 'Gold' || user.tier === 'Silver' || discountedSubtotal >= 5000;
             const totalAmount = discountedSubtotal + (isShippingFree ? 0 : 250);
+            let cariAccount = null;
 
             if (paymentMethod === 'Cari') {
-                const account = user.wholesalerAccounts.find(
+                cariAccount = user.wholesalerAccounts.find(
                     acc => acc.wholesalerId.toString() === wholesalerId.toString()
                 );
 
-                if (!account) {
+                if (!cariAccount) {
                     return res.status(400).json({ message: 'Bu toptanci ile aktif bir cari hesabi bulunmuyor.' });
                 }
 
-                const remainingLimit = account.creditLimit - account.currentDebt;
+                const remainingLimit = cariAccount.creditLimit - cariAccount.currentDebt;
                 if (totalAmount > remainingLimit) {
                     return res.status(400).json({ message: `Yetersiz cari limit. Siparis tutari: ${totalAmount} TL, kalan limit: ${remainingLimit} TL` });
                 }
-
-                account.currentDebt += totalAmount;
-                user.markModified('wholesalerAccounts');
             }
 
             let wholesalerName = 'Toptanci Magazasi';
@@ -122,9 +130,37 @@ const createOrderRoutes = () => {
                 date: new Date()
             };
 
-            orderProducts.forEach(({ wholesalerInfo, orderRow }) => {
+            for (const { product, wholesalerInfo, orderRow } of orderProducts) {
+                const stockUpdate = await Product.updateOne(
+                    {
+                        _id: product._id,
+                        wholesalers: {
+                            $elemMatch: {
+                                usersID: new mongoose.Types.ObjectId(wholesalerId),
+                                stockQuantity: { $gte: orderRow.count }
+                            }
+                        }
+                    },
+                    { $inc: { 'wholesalers.$.stockQuantity': -orderRow.count } }
+                );
+
+                if (stockUpdate.modifiedCount !== 1) {
+                    await rollbackStockReservations(stockReservations);
+                    return res.status(409).json({ message: `${orderRow.title} icin stok ayni anda degismis olabilir. Lutfen sepeti yenileyin.` });
+                }
+
                 wholesalerInfo.stockQuantity -= orderRow.count;
-            });
+                stockReservations.push({
+                    productId: product._id,
+                    wholesalerId: new mongoose.Types.ObjectId(wholesalerId),
+                    count: orderRow.count
+                });
+            }
+
+            if (cariAccount) {
+                cariAccount.currentDebt += totalAmount;
+                user.markModified('wholesalerAccounts');
+            }
 
             user.orders.push(newOrder);
 
@@ -132,13 +168,15 @@ const createOrderRoutes = () => {
             user.tier = totalSpent >= 100000 ? 'Gold' : totalSpent >= 20000 ? 'Silver' : 'Bronze';
 
             await user.save();
-            await Promise.all(orderProducts.map(({ product }) => product.save()));
             await Promise.all(orderProducts.map(({ product, wholesalerInfo }) => User.updateOne(
                 { _id: wholesalerId, 'products.productID': product._id },
                 { $set: { 'products.$.stockQuantity': wholesalerInfo.stockQuantity } }
             )));
             res.status(201).json({ message: 'Siparis basariyla olusturuldu.', user: sanitizeUser(user) });
         } catch (error) {
+            if (stockReservations.length > 0) {
+                await rollbackStockReservations(stockReservations);
+            }
             res.status(500).json({ message: 'Siparis islenirken hata olustu.', error: error.message });
         }
     });
@@ -228,6 +266,11 @@ const createOrderRoutes = () => {
         const { rating, review } = req.body;
 
         try {
+            const numericRating = Number(rating);
+            if (!Number.isInteger(numericRating) || numericRating < 1 || numericRating > 5) {
+                return res.status(400).json({ message: 'Puan 1 ile 5 arasinda olmalidir.' });
+            }
+
             const customer = await User.findById(customerId);
             if (!customer) {
                 return res.status(404).json({ message: 'Musteri bulunamadi.' });
@@ -238,7 +281,7 @@ const createOrderRoutes = () => {
                 return res.status(404).json({ message: 'Siparis bulunamadi.' });
             }
 
-            order.rating = rating;
+            order.rating = numericRating;
             if (review !== undefined) {
                 order.review = review;
             }
@@ -253,7 +296,7 @@ const createOrderRoutes = () => {
                     allCustomers.forEach(account => {
                         account.orders.forEach(item => {
                             if (item.wholesalerId && item.wholesalerId.toString() === order.wholesalerId.toString()) {
-                                const itemRating = item._id.toString() === orderId ? rating : (item.rating || 0);
+                                const itemRating = item._id.toString() === orderId ? numericRating : (item.rating || 0);
                                 if (itemRating > 0) {
                                     sum += itemRating;
                                     count++;

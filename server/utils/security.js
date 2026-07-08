@@ -98,6 +98,10 @@ const requireWholesalerRole = (allowedRoles) => (req, res, next) => {
     }
 
     const normalizedEmployeeRole = normalizeRole(req.auth?.employeeRole);
+    if (normalizedEmployeeRole === 'admin') {
+        return next();
+    }
+
     const allowedAliases = allowedRoles.flatMap(role => roleAliases[role] || [role]);
     const isAllowed = allowedAliases.map(normalizeRole).includes(normalizedEmployeeRole);
 
