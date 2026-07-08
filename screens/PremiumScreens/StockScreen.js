@@ -5,7 +5,6 @@ import {
   FlatList,
   Image,
   Modal,
-  Platform,
   ScrollView,
   SafeAreaView,
   StyleSheet,
@@ -30,10 +29,11 @@ import {
   updateProductInventory,
 } from '../../data/Data';
 import { AuthContext } from '../../context/AuthContext';
-
-const FONT_FAMILY = Platform.OS === 'web'
-  ? 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
-  : 'System';
+import { getResponsiveContentWidth, isWeb } from '../../constants/responsiveLayout';
+import { CARD_STYLES, COLORS, FONT_FAMILY } from '../../constants/uiTheme';
+import EmptyState from '../../components/ui/EmptyState';
+import PageHeader from '../../components/ui/PageHeader';
+import SummaryMetricCard from '../../components/ui/SummaryMetricCard';
 
 const formatPrice = (value) => {
   const numericValue = Number(value || 0);
@@ -48,6 +48,7 @@ const StockScreen = () => {
   const { user } = useContext(AuthContext);
   const { width } = useWindowDimensions();
   const isLargeScreen = width > 900;
+  const webContentWidth = getResponsiveContentWidth(width, 1100);
 
   const [products, setProducts] = useState([]);
   const [brands, setBrands] = useState({});
@@ -351,14 +352,13 @@ const StockScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <View style={[styles.headerRow, isLargeScreen && styles.headerRowLarge]}>
-          <View>
-            <Text style={styles.eyebrow}>Toptancı Stok Paneli</Text>
-            <Text style={styles.pageTitle}>Ürün ve Fiyat Yönetimi</Text>
-            <Text style={styles.subtitle}>Ürünlerinizi, stok seviyelerinizi ve satış fiyatlarınızı buradan takip edin.</Text>
-          </View>
-
-          <View style={styles.headerActions}>
+        <PageHeader
+          eyebrow="Toptancı Stok Paneli"
+          title="Ürün ve Fiyat Yönetimi"
+          subtitle="Ürünlerinizi, stok seviyelerinizi ve satış fiyatlarınızı buradan takip edin."
+          style={[styles.headerRow, isLargeScreen && styles.headerRowLarge, isWeb && { width: webContentWidth }]}
+          rightContent={(
+            <View style={styles.headerActions}>
             <TouchableOpacity style={styles.secondaryButton} onPress={handleOpenAddModal}>
               <Ionicons name="add-circle" size={17} color="#1E3A8A" style={{ marginRight: 7 }} />
               <Text style={styles.secondaryButtonText}>Yeni Ürün Ekle</Text>
@@ -374,30 +374,15 @@ const StockScreen = () => {
                 </>
               )}
             </TouchableOpacity>
-          </View>
-        </View>
+            </View>
+          )}
+        />
 
-        <View style={styles.summaryGrid}>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Ürün Çeşidi</Text>
-            <Text style={styles.summaryValue}>{products.length}</Text>
-            <Text style={styles.summaryHint}>Satışta olan ürün kaydı</Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Toplam Stok</Text>
-            <Text style={styles.summaryValue}>{totalStock}</Text>
-            <Text style={styles.summaryHint}>Depodaki toplam adet</Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Kritik Stok</Text>
-            <Text style={[styles.summaryValue, lowStockCount > 0 && styles.warningValue]}>{lowStockCount}</Text>
-            <Text style={styles.summaryHint}>Minimum seviyeye yaklaşan ürün</Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Stok Değeri</Text>
-            <Text style={styles.summaryValueSmall}>{formatPrice(totalInventoryValue)}</Text>
-            <Text style={styles.summaryHint}>Fiyat x stok yaklaşık değer</Text>
-          </View>
+        <View style={[styles.summaryGrid, isWeb && { width: webContentWidth }]}>
+          <SummaryMetricCard label="Ürün Çeşidi" value={products.length} hint="Satışta olan ürün kaydı" />
+          <SummaryMetricCard label="Toplam Stok" value={totalStock} hint="Depodaki toplam adet" />
+          <SummaryMetricCard label="Kritik Stok" value={lowStockCount} hint="Minimum seviyeye yaklaşan ürün" tone={lowStockCount > 0 ? 'warning' : 'primary'} />
+          <SummaryMetricCard label="Stok Değeri" value={formatPrice(totalInventoryValue)} hint="Fiyat x stok yaklaşık değer" />
         </View>
 
         {error ? (
@@ -414,13 +399,13 @@ const StockScreen = () => {
             data={products}
             renderItem={renderProduct}
             keyExtractor={(item) => item._id}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[styles.listContent, isWeb && { width: webContentWidth }]}
             ListEmptyComponent={
-              <View style={styles.centerState}>
-                <Ionicons name="cube-outline" size={56} color="#CBD5E1" />
-                <Text style={styles.centerTitle}>Henüz ürün yok</Text>
-                <Text style={styles.centerText}>Toptancı hesabınıza ürün eklediğinizde stok listeniz burada görünecek.</Text>
-              </View>
+              <EmptyState
+                icon="cube-outline"
+                title="Henüz ürün yok"
+                subtitle="Toptancı hesabınıza ürün eklediğinizde stok listeniz burada görünecek."
+              />
             }
           />
         )}
@@ -582,7 +567,7 @@ const StockScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: COLORS.appBg,
   },
   content: {
     flex: 1,
@@ -592,7 +577,7 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     width: '100%',
-    maxWidth: 1000,
+    maxWidth: 1100,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
@@ -600,7 +585,7 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   headerRowLarge: {
-    maxWidth: 1000,
+    maxWidth: 1100,
   },
   eyebrow: {
     fontFamily: FONT_FAMILY,
@@ -672,7 +657,7 @@ const styles = StyleSheet.create({
   },
   summaryGrid: {
     width: '100%',
-    maxWidth: 1000,
+    maxWidth: 1100,
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginHorizontal: -6,
@@ -681,18 +666,10 @@ const styles = StyleSheet.create({
   summaryCard: {
     flex: 1,
     minWidth: 210,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 12,
+    ...CARD_STYLES.panel,
     padding: 14,
     marginHorizontal: 6,
     marginBottom: 10,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
-    elevation: 1,
   },
   summaryLabel: {
     fontFamily: FONT_FAMILY,
@@ -727,24 +704,16 @@ const styles = StyleSheet.create({
   },
   listContent: {
     width: '100%',
-    maxWidth: 1000,
+    maxWidth: 1100,
     paddingBottom: 120,
   },
   productCard: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 12,
+    ...CARD_STYLES.panel,
     padding: 16,
     marginBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 1,
   },
   productImage: {
     width: 78,

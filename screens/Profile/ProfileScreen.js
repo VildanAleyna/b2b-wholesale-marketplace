@@ -1,13 +1,21 @@
-import React, { useContext, useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Platform, ScrollView } from 'react-native';
+import React, { useContext, useEffect, useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Platform, ScrollView, useWindowDimensions } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../../context/AuthContext';
+import { fetchCustomerInsights } from '../../data/Data';
+import OperationalInsightsPanel from '../../components/OperationalInsightsPanel';
+import { getResponsiveContentWidth } from '../../constants/responsiveLayout';
+import AppToast from '../../components/ui/AppToast';
 
 const isWeb = Platform.OS === 'web';
 
 const ProfileScreen = ({ navigation }) => {
   const { user, logout } = useContext(AuthContext); // user ve logout'u AuthContext'ten alıyoruz
+  const { width: windowWidth } = useWindowDimensions();
+  const webContentWidth = getResponsiveContentWidth(windowWidth, 900);
   const [toast, setToast] = useState({ visible: false, message: '' });
+  const [insights, setInsights] = useState(null);
+  const [insightsLoading, setInsightsLoading] = useState(false);
 
   const showToast = (message) => {
     setToast({ visible: true, message });
@@ -22,6 +30,21 @@ const ProfileScreen = ({ navigation }) => {
   };
 
   // Kullanıcı adının baş harflerini al
+  useEffect(() => {
+    const loadInsights = async () => {
+      if (!user?._id) {
+        return;
+      }
+
+      setInsightsLoading(true);
+      const data = await fetchCustomerInsights(user._id);
+      setInsights(data);
+      setInsightsLoading(false);
+    };
+
+    loadInsights();
+  }, [user?._id]);
+
   const getInitials = (name) => {
     if (!name) return 'U';
     return name
@@ -34,15 +57,10 @@ const ProfileScreen = ({ navigation }) => {
 
   return (
     <View style={styles.container}>
-      {toast.visible && (
-        <View style={styles.toast}>
-          <Ionicons name="information-circle" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-          <Text style={styles.toastText}>{toast.message}</Text>
-        </View>
-      )}
+      <AppToast visible={toast.visible} message={toast.message} />
 
       <ScrollView contentContainerStyle={styles.scrollContainer}>
-        <View style={styles.card}>
+        <View style={[styles.card, isWeb && { width: webContentWidth }]}>
           {/* Harf Logolu Premium Avatar */}
           <View style={styles.avatarContainer}>
             <Text style={styles.avatarText}>{getInitials(user?.name)}</Text>
@@ -124,6 +142,13 @@ const ProfileScreen = ({ navigation }) => {
           })()}
 
           {/* Menü Listesi */}
+          <OperationalInsightsPanel
+            insights={insights}
+            loading={insightsLoading}
+            title="Bayi Hesap Uyarıları"
+            subtitle="Cari limit, aktif sipariş ve ödeme bildirimlerinizi takip edin."
+          />
+
           <View style={styles.menuList}>
             <TouchableOpacity 
               style={styles.menuItem} 
@@ -200,7 +225,7 @@ const styles = StyleSheet.create({
     padding: 35,
     borderRadius: 24,
     width: '100%',
-    maxWidth: 800, // Web'de aşırı sıkışmayı ve kesilmeleri önler
+    maxWidth: 900,
     alignItems: 'center',
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 10 },

@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
     borderRadius: 24,
     padding: 24,
     width: '100%',
-    maxWidth: 1000,
+    maxWidth: 1280,
     marginBottom: 30,
     shadowColor: '#0F172A',
     shadowOffset: { width: 0, height: 6 },
@@ -314,7 +314,7 @@ const styles = StyleSheet.create({
   },
   listHeader: {
     width: '100%',
-    maxWidth: 1000,
+    maxWidth: 1280,
     flexDirection: 'row',
     alignItems: 'center',
     marginBottom: 16,
@@ -336,7 +336,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'flex-start',
     width: '100%',
-    maxWidth: 1000,
+    maxWidth: 1280,
   },
   column: {
     width: isWeb ? '23%' : '48%',

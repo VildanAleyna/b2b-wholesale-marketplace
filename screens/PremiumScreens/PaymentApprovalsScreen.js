@@ -9,14 +9,24 @@ import {
   ActivityIndicator,
   Modal,
   Image,
-  RefreshControl
+  RefreshControl,
+  useWindowDimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../../context/AuthContext';
 import { fetchWholesalerPayments, updatePaymentStatus } from '../../data/Data';
+import { getResponsiveContentWidth, getTwoColumnCardWidth, isWeb } from '../../constants/responsiveLayout';
+import { CARD_STYLES, COLORS } from '../../constants/uiTheme';
+import AppToast from '../../components/ui/AppToast';
+import EmptyState from '../../components/ui/EmptyState';
+import PageHeader from '../../components/ui/PageHeader';
+import SummaryMetricCard from '../../components/ui/SummaryMetricCard';
 
 const PaymentApprovalsScreen = ({ navigation }) => {
   const { user } = useContext(AuthContext);
+  const { width: windowWidth } = useWindowDimensions();
+  const webContentWidth = getResponsiveContentWidth(windowWidth);
+  const webCardWidth = getTwoColumnCardWidth(windowWidth);
   const [payments, setPayments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -100,7 +110,7 @@ const PaymentApprovalsScreen = ({ navigation }) => {
     });
 
     return (
-      <View style={styles.paymentCard}>
+      <View style={[styles.paymentCard, isWeb && styles.paymentCardWeb, isWeb && { width: webCardWidth }]}>
         <View style={styles.cardHeader}>
           <View>
             <Text style={styles.customerName}>{customer.name || 'Bilinmeyen Bayi'}</Text>
@@ -120,8 +130,8 @@ const PaymentApprovalsScreen = ({ navigation }) => {
           </View>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Dekont Dosyası:</Text>
-            <TouchableOpacity 
-              style={styles.fileLinkButton} 
+            <TouchableOpacity
+              style={styles.fileLinkButton}
               onPress={() => setSelectedReceipt(item)}
             >
               <Ionicons name="document-text-outline" size={14} color="#F97316" style={{ marginRight: 4 }} />
@@ -163,12 +173,7 @@ const PaymentApprovalsScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {toast.visible && (
-        <View style={styles.toast}>
-          <Ionicons name="information-circle" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-          <Text style={styles.toastText}>{toast.message}</Text>
-        </View>
-      )}
+      <AppToast visible={toast.visible} message={toast.message} />
 
       {loading ? (
         <View style={styles.loadingContainer}>
@@ -176,32 +181,26 @@ const PaymentApprovalsScreen = ({ navigation }) => {
         </View>
       ) : (
         <FlatList
+          key={isWeb ? 'payments-web' : 'payments-mobile'}
+          style={isWeb ? styles.listWeb : null}
           data={payments}
           renderItem={renderPaymentItem}
           keyExtractor={(item) => item._id}
-          contentContainerStyle={styles.listContainer}
+          numColumns={isWeb ? 2 : 1}
+          columnWrapperStyle={isWeb ? styles.paymentGridRow : null}
+          contentContainerStyle={[styles.listContainer, isWeb && styles.listContainerWeb]}
           ListHeaderComponent={
             <View style={styles.pageHeader}>
-              <Text style={styles.eyebrow}>Muhasebe Paneli</Text>
-              <Text style={styles.pageTitle}>Ödeme Onayları</Text>
-              <Text style={styles.pageSubtitle}>Bayilerden gelen dekont ve ödeme bildirimlerini kontrol edip cari borçtan düşebilirsiniz.</Text>
+              <PageHeader
+                eyebrow="Muhasebe Paneli"
+                title={'\u00d6deme Onaylar\u0131'}
+                subtitle={'Bayilerden gelen dekont ve \u00f6deme bildirimlerini kontrol edip cari bor\u00e7tan d\u00fc\u015febilirsiniz.'}
+              />
 
               <View style={styles.summaryGrid}>
-                <View style={styles.summaryCard}>
-                  <Text style={styles.summaryLabel}>Bekleyen Bildirim</Text>
-                  <Text style={styles.summaryValueWarning}>{pendingCount}</Text>
-                  <Text style={styles.summaryHint}>İşlem bekleyen ödeme kaydı</Text>
-                </View>
-                <View style={styles.summaryCard}>
-                  <Text style={styles.summaryLabel}>Bekleyen Tutar</Text>
-                  <Text style={styles.summaryValue}>{pendingTotal.toLocaleString('tr-TR')} ₺</Text>
-                  <Text style={styles.summaryHint}>Onaylandığında cariden düşer</Text>
-                </View>
-                <View style={styles.summaryCard}>
-                  <Text style={styles.summaryLabel}>Onaylanan Tahsilat</Text>
-                  <Text style={styles.summaryValueSuccess}>{approvedTotal.toLocaleString('tr-TR')} ₺</Text>
-                  <Text style={styles.summaryHint}>Onaylanmış ödeme toplamı</Text>
-                </View>
+                <SummaryMetricCard label="Bekleyen Bildirim" value={pendingCount} hint={'\u0130\u015flem bekleyen \u00f6deme kayd\u0131'} tone="warning" />
+                <SummaryMetricCard label="Bekleyen Tutar" value={`${pendingTotal.toLocaleString('tr-TR')} \u20ba`} hint={'Onayland\u0131\u011f\u0131nda cariden d\u00fc\u015fer'} />
+                <SummaryMetricCard label="Onaylanan Tahsilat" value={`${approvedTotal.toLocaleString('tr-TR')} \u20ba`} hint={'Onaylanm\u0131\u015f \u00f6deme toplam\u0131'} tone="success" />
               </View>
             </View>
           }
@@ -209,13 +208,11 @@ const PaymentApprovalsScreen = ({ navigation }) => {
             <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
           }
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Ionicons name="mail-open-outline" size={60} color="#CBD5E1" style={{ marginBottom: 15 }} />
-              <Text style={styles.emptyTitle}>Gelen Bildirim Yok</Text>
-              <Text style={styles.emptySubtitle}>
-                Bayileriniz tarafından gönderilmiş herhangi bir ödeme veya dekont bildirimi bulunmuyor.
-              </Text>
-            </View>
+            <EmptyState
+              icon="mail-open-outline"
+              title="Gelen Bildirim Yok"
+              subtitle={'Bayileriniz taraf\u0131ndan g\u00f6nderilmi\u015f herhangi bir \u00f6deme veya dekont bildirimi bulunmuyor.'}
+            />
           }
         />
       )}
@@ -239,17 +236,17 @@ const PaymentApprovalsScreen = ({ navigation }) => {
             <View style={styles.receiptPreviewBox}>
               <Ionicons name="document-text" size={60} color="#CBD5E1" style={{ marginBottom: 10 }} />
               <Text style={styles.receiptDocName}>{selectedReceipt?.receiptFile}</Text>
-              
+
               <View style={styles.simulatedReceiptDetails}>
                 <Text style={styles.simLabel}>Gönderen Bayi:</Text>
                 <Text style={styles.simVal}>{selectedReceipt?.customerId?.name}</Text>
-                
+
                 <Text style={styles.simLabel}>Tutar:</Text>
                 <Text style={styles.simValAmount}>{selectedReceipt?.amount?.toLocaleString('tr-TR')} ₺</Text>
-                
+
                 <Text style={styles.simLabel}>Banka:</Text>
                 <Text style={styles.simVal}>Akbank T.A.Ş.</Text>
-                
+
                 <Text style={styles.simLabel}>Açıklama:</Text>
                 <Text style={styles.simVal}>Cari borç ödemesi referans {selectedReceipt?._id?.substring(0, 8)}</Text>
               </View>
@@ -273,21 +270,32 @@ const PaymentApprovalsScreen = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: COLORS.appBg,
   },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
   },
+  listWeb: {
+    width: '100%',
+  },
   listContainer: {
     padding: 20,
     alignItems: 'center',
+    paddingBottom: 120,
+  },
+  listContainerWeb: {
+    width: '100%',
+    maxWidth: 1280,
+    alignSelf: 'center',
+    paddingHorizontal: 32,
+    paddingTop: 26,
   },
   pageHeader: {
     width: '100%',
-    maxWidth: 900,
-    marginBottom: 16,
+    maxWidth: 1280,
+    marginBottom: 24,
   },
   eyebrow: {
     fontSize: 11,
@@ -311,18 +319,15 @@ const styles = StyleSheet.create({
   summaryGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    marginHorizontal: -6,
+    marginHorizontal: -7,
   },
   summaryCard: {
     flex: 1,
-    minWidth: 210,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 12,
-    padding: 14,
-    marginHorizontal: 6,
-    marginBottom: 10,
+    minWidth: 230,
+    ...CARD_STYLES.panel,
+    padding: 16,
+    marginHorizontal: 7,
+    marginBottom: 12,
   },
   summaryLabel: {
     fontSize: 12,
@@ -358,17 +363,22 @@ const styles = StyleSheet.create({
   paymentCard: {
     width: '100%',
     maxWidth: 600,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 16,
+    ...CARD_STYLES.roundedPanel,
     padding: 20,
     marginBottom: 16,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.05,
-    shadowRadius: 12,
-    elevation: 3,
+  },
+  paymentCardWeb: {
+    maxWidth: 630,
+    minWidth: 0,
+    minHeight: 172,
+    marginHorizontal: 10,
+    padding: 22,
+  },
+  paymentGridRow: {
+    width: '100%',
+    maxWidth: 1280,
+    justifyContent: 'center',
+    alignItems: 'stretch',
   },
   cardHeader: {
     flexDirection: 'row',

@@ -12,18 +12,25 @@ import {
   Image,
   RefreshControl,
   Alert,
-  Platform
+  Platform,
+  useWindowDimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../../context/AuthContext';
-import { fetchWholesalerOrders, updateOrderStatus } from '../../data/Data';
+import { fetchWholesalerInsights, fetchWholesalerOrders, updateOrderStatus } from '../../data/Data';
 import { EMPLOYEE_ROLES } from '../../constants/roles';
+import OperationalInsightsPanel from '../../components/OperationalInsightsPanel';
+import { getResponsiveContentWidth, isWeb } from '../../constants/responsiveLayout';
 
 const WholesalerOrdersScreen = () => {
   const { user } = useContext(AuthContext);
+  const { width: windowWidth } = useWindowDimensions();
+  const webContentWidth = getResponsiveContentWidth(windowWidth, 1100);
   const isSalesEmployee = user?.employeeAccount && user?.employeeRole === EMPLOYEE_ROLES.SALES;
   const canOperateShipment = !user?.employeeAccount || user?.employeeRole === EMPLOYEE_ROLES.WAREHOUSE;
   const [orders, setOrders] = useState([]);
+  const [insights, setInsights] = useState(null);
+  const [insightsLoading, setInsightsLoading] = useState(true);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [toast, setToast] = useState({ visible: false, message: '' });
@@ -42,12 +49,17 @@ const WholesalerOrdersScreen = () => {
   const loadOrders = async () => {
     if (user && user._id) {
       try {
-        const data = await fetchWholesalerOrders(user._id);
+        const [data, insightData] = await Promise.all([
+          fetchWholesalerOrders(user._id),
+          fetchWholesalerInsights(user._id),
+        ]);
         setOrders(data);
+        setInsights(insightData);
       } catch (error) {
         console.error('Gelen siparişler yüklenemedi:', error);
       } finally {
         setLoading(false);
+        setInsightsLoading(false);
       }
     }
   };
@@ -192,7 +204,7 @@ const WholesalerOrdersScreen = () => {
           : '#10B981';
 
     return (
-      <View style={styles.orderCard}>
+      <View style={[styles.orderCard, isWeb && { width: webContentWidth }]}>
         {/* Başlık Bölümü */}
         <View style={styles.orderHeader}>
           <View style={{ flex: 1, marginRight: 10 }}>
@@ -338,7 +350,7 @@ const WholesalerOrdersScreen = () => {
           keyExtractor={(item) => item.orderId}
           contentContainerStyle={styles.listContainer}
           ListHeaderComponent={
-            <View style={styles.pageHeader}>
+            <View style={[styles.pageHeader, isWeb && { width: webContentWidth }]}>
               <Text style={styles.eyebrow}>{isSalesEmployee ? 'Satış Takip Paneli' : 'Operasyon Paneli'}</Text>
               <Text style={styles.pageTitle}>{isSalesEmployee ? 'Bayi Sipariş Takibi' : 'Gelen Siparişler'}</Text>
               <Text style={styles.pageSubtitle}>
@@ -369,6 +381,15 @@ const WholesalerOrdersScreen = () => {
                   <Text style={styles.summaryHint}>Sipariş veren bayi</Text>
                 </View>
               </View>
+
+              <OperationalInsightsPanel
+                insights={insights}
+                loading={insightsLoading}
+                title={isSalesEmployee ? 'Bayi ve Sipariş Uyarıları' : 'Akıllı Operasyon Uyarıları'}
+                subtitle={isSalesEmployee
+                  ? 'Bayi, sipariş ve cari risk sinyallerini satış takibi için özetler.'
+                  : 'Stok, sipariş, ödeme ve cari riskleri tek panelde takip edin.'}
+              />
             </View>
           }
           refreshControl={
@@ -454,8 +475,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   pageHeader: {
-    width: Platform.OS === 'web' ? 850 : '100%',
-    maxWidth: 850,
+    width: '100%',
+    maxWidth: 1100,
     marginBottom: 16,
   },
   eyebrow: {
@@ -525,8 +546,8 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   orderCard: {
-    width: Platform.OS === 'web' ? 850 : '100%',
-    maxWidth: 850,
+    width: '100%',
+    maxWidth: 1100,
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 24,

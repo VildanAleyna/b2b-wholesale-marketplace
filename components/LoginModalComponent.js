@@ -1,59 +1,120 @@
-import React, { useState, useContext } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, TouchableWithoutFeedback, Alert } from 'react-native';
+import React, { useContext, useState } from 'react';
+import {
+  Modal,
+  StyleSheet,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  TouchableWithoutFeedback,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { AuthContext } from '../context/AuthContext';
+import { getModalWidth, isWeb } from '../constants/responsiveLayout';
 
 const LoginModalComponent = ({ isVisible, onClose, onNavigateToRegister }) => {
-  const { login } = useContext(AuthContext); // AuthContext'ten login fonksiyonunu alıyoruz
+  const { login } = useContext(AuthContext);
+  const { width: windowWidth } = useWindowDimensions();
+  const modalWidth = getModalWidth(windowWidth, 460);
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+
+  const closeModal = () => {
+    setErrorMessage('');
+    onClose();
+  };
 
   const handleLogin = async () => {
+    const trimmedUsername = username.trim();
+
+    if (!trimmedUsername || !password) {
+      setErrorMessage('Lütfen kullanıcı adı/e-posta ve şifre girin.');
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage('');
+
     try {
-      Alert.alert('Giriş Yapılıyor', 'Lütfen bekleyin...'); // Loader göstermek yerine geçici bir alert
-      const result = await login(username, password);
+      const result = await login(trimmedUsername, password);
+
       if (result.success) {
-        Alert.alert('Giriş Başarılı', 'Hoş geldiniz!');
-        onClose(); // Modalı kapat
+        setUsername('');
+        setPassword('');
+        closeModal();
       } else {
-        Alert.alert('Giriş Başarısız', result.message);
+        setErrorMessage(result.message || 'Giriş bilgileri hatalı. Lütfen tekrar deneyin.');
       }
     } catch (error) {
-      Alert.alert('Giriş Hatası', 'Bir hata oluştu, lütfen tekrar deneyin.');
+      setErrorMessage('Giriş sırasında bir hata oluştu. Lütfen tekrar deneyin.');
+    } finally {
+      setIsLoading(false);
     }
+  };
+
+  const handleNavigateToRegister = () => {
+    setErrorMessage('');
+    onNavigateToRegister();
   };
 
   return (
     <Modal
       animationType="slide"
-      transparent={true}
+      transparent
       visible={isVisible}
-      onRequestClose={onClose}
+      onRequestClose={closeModal}
     >
-      <TouchableWithoutFeedback onPress={onClose}>
+      <TouchableWithoutFeedback onPress={closeModal}>
         <View style={styles.modalContainer}>
           <TouchableWithoutFeedback onPress={() => {}}>
-            <View style={styles.modalContent}>
+            <View style={[styles.modalContent, isWeb && { width: modalWidth }]}>
               <Text style={styles.modalTitle}>Giriş Yap</Text>
-              <TextInput 
-                placeholder="E-posta veya personel kullanıcı adı" 
+
+              <TextInput
+                placeholder="E-posta veya personel kullanıcı adı"
                 value={username}
-                onChangeText={setUsername}
-                style={styles.input} 
+                onChangeText={(value) => {
+                  setUsername(value);
+                  setErrorMessage('');
+                }}
+                style={styles.input}
+                autoCapitalize="none"
               />
-              <TextInput 
-                placeholder="Şifre" 
-                secureTextEntry={true} 
+
+              <TextInput
+                placeholder="Şifre"
+                secureTextEntry
                 value={password}
-                onChangeText={setPassword}
-                style={styles.input} 
+                onChangeText={(value) => {
+                  setPassword(value);
+                  setErrorMessage('');
+                }}
+                style={styles.input}
               />
-              <TouchableOpacity onPress={handleLogin} style={styles.modalButton}>
-                <Text style={styles.modalButtonText}>Giriş Yap</Text>
+
+              {errorMessage ? (
+                <View style={styles.errorBox}>
+                  <Text style={styles.errorText}>{errorMessage}</Text>
+                </View>
+              ) : null}
+
+              <TouchableOpacity
+                onPress={handleLogin}
+                style={[styles.modalButton, isLoading && styles.modalButtonDisabled]}
+                disabled={isLoading}
+              >
+                <Text style={styles.modalButtonText}>
+                  {isLoading ? 'Kontrol ediliyor...' : 'Giriş Yap'}
+                </Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={onNavigateToRegister} style={styles.modalLinkButton}>
+
+              <TouchableOpacity onPress={handleNavigateToRegister} style={styles.modalLinkButton}>
                 <Text style={styles.modalLinkButtonText}>Hesabınız yok mu? Kayıt Olun</Text>
               </TouchableOpacity>
-              <TouchableOpacity onPress={onClose} style={styles.modalCloseButton}>
+
+              <TouchableOpacity onPress={closeModal} style={styles.modalCloseButton}>
                 <Text style={styles.modalCloseButtonText}>Kapat</Text>
               </TouchableOpacity>
             </View>
@@ -69,13 +130,12 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: 'rgba(0,0,0,0.5)', // Modal arka plan rengini ayarlıyoruz
+    backgroundColor: 'rgba(0,0,0,0.5)',
   },
   modalContent: {
-    width: '90%', // Genişliği %90 olarak ayarladık
-    maxWidth: 400, // Maksimum genişliği 400 piksel olarak belirledik
-    backgroundColor: '#ffffff',
-    borderRadius: 20, // Köşe yuvarlama oranını artırdık
+    width: '90%',
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
     padding: 20,
     paddingBottom: 30,
     shadowColor: '#000000',
@@ -85,7 +145,7 @@ const styles = StyleSheet.create({
     elevation: 10,
   },
   modalTitle: {
-    fontSize: 24, // Başlık font boyutunu artırdık
+    fontSize: 24,
     marginBottom: 20,
     textAlign: 'center',
     fontWeight: 'bold',
@@ -95,21 +155,39 @@ const styles = StyleSheet.create({
     width: '100%',
     padding: 12,
     borderWidth: 1,
-    borderColor: '#cccccc',
+    borderColor: '#CCCCCC',
     borderRadius: 8,
     marginBottom: 15,
     fontSize: 16,
   },
+  errorBox: {
+    backgroundColor: '#FEF2F2',
+    borderWidth: 1,
+    borderColor: '#FECACA',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 12,
+  },
+  errorText: {
+    color: '#B91C1C',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
   modalButton: {
-    backgroundColor: '#007bff', // Buton rengini daha belirgin mavi yaptık
+    backgroundColor: '#007BFF',
     padding: 12,
     borderRadius: 8,
     marginTop: 10,
     width: '100%',
     alignItems: 'center',
   },
+  modalButtonDisabled: {
+    opacity: 0.7,
+  },
   modalButtonText: {
-    color: '#ffffff',
+    color: '#FFFFFF',
     fontSize: 18,
     fontWeight: 'bold',
   },
@@ -119,7 +197,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalLinkButtonText: {
-    color: '#007bff', // Bağlantı rengini mavi yaptık
+    color: '#007BFF',
     fontSize: 16,
     textDecorationLine: 'underline',
   },
@@ -129,7 +207,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   modalCloseButtonText: {
-    color: '#ff0000', // Kapat buton rengini kırmızı yaptık
+    color: '#EF4444',
     fontSize: 16,
     fontWeight: 'bold',
   },

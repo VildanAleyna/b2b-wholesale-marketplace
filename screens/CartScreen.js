@@ -10,17 +10,22 @@ import {
   ActivityIndicator,
   ScrollView,
   Platform,
-  Alert
+  Alert,
+  useWindowDimensions
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import { CartContext } from '../context/CartContext';
 import { AuthContext } from '../context/AuthContext';
 import { fetchUserCariAccounts, submitPurchase } from '../data/Data';
+import { getResponsiveContentWidth, isWeb } from '../constants/responsiveLayout';
+import AppToast from '../components/ui/AppToast';
 
 const CartScreen = ({ navigation }) => {
   const { cart, removeFromCart, increaseCount, decreaseCount, addToOrderHistory } = useContext(CartContext);
   const { user, setUser } = useContext(AuthContext);
+  const { width: windowWidth } = useWindowDimensions();
+  const webContentWidth = getResponsiveContentWidth(windowWidth, 900);
 
   const [paymentMethod, setPaymentMethod] = useState('CreditCard'); // 'CreditCard' veya 'Cari'
   const [cariAccounts, setCariAccounts] = useState([]);
@@ -208,7 +213,7 @@ const CartScreen = ({ navigation }) => {
     const isUnderMoq = item.count < moq;
 
     return (
-      <View style={styles.itemCard}>
+      <View style={[styles.itemCard, isWeb && { width: webContentWidth }]}>
         <Image source={{ uri: item.image }} style={styles.productImage} />
         <View style={styles.productInfo}>
           <Text style={styles.productTitle} numberOfLines={2}>{item.title}</Text>
@@ -262,12 +267,7 @@ const CartScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {toast.visible && (
-        <View style={styles.toast}>
-          <Ionicons name="information-circle" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-          <Text style={styles.toastText}>{toast.message}</Text>
-        </View>
-      )}
+      <AppToast visible={toast.visible} message={toast.message} />
 
       {cart.length === 0 ? (
         <View style={styles.emptyContainer}>
@@ -288,7 +288,7 @@ const CartScreen = ({ navigation }) => {
             keyExtractor={item => item._id}
             contentContainerStyle={styles.listContainer}
             ListFooterComponent={
-              <View style={styles.summaryContainer}>
+              <View style={[styles.summaryContainer, isWeb && { width: webContentWidth }]}>
                 <Text style={styles.summaryTitle}>Sipariş Özeti</Text>
                 
                 {/* Otomatik Sadakat / İlerleme Durumu */}
@@ -461,8 +461,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   itemCard: {
-    width: Platform.OS === 'web' ? 650 : '100%',
-    maxWidth: 650,
+    width: '100%',
+    maxWidth: 900,
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 18,
@@ -604,8 +604,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   summaryContainer: {
-    width: Platform.OS === 'web' ? 650 : '100%',
-    maxWidth: 650,
+    width: '100%',
+    maxWidth: 900,
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     padding: 20,

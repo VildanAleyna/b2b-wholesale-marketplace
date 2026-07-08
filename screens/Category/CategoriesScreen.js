@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Text, View, Dimensions, TouchableOpacity, StyleSheet, ImageBackground, Platform, ScrollView } from 'react-native';
+import { Text, View, TouchableOpacity, StyleSheet, ImageBackground, Platform, ScrollView } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { fetchCategories, fetchProducts } from '../../data/Data';
 
@@ -26,21 +26,20 @@ const CategoriesScreen = () => {
       <View style={styles.list}>
         {categories.map((item, index) => {
           const count = products.filter(p => p.categoryId === item._id).length;
-          // Sıralamaya göre biri sola (çift indeksli), biri sağa (tek indeksli) yaslanacak
           const isEven = index % 2 === 0;
 
           return (
-            <TouchableOpacity 
-              key={item._id} 
+            <TouchableOpacity
+              key={item._id}
               style={[
-                styles.card, 
-                isEven ? styles.cardLeft : styles.cardRight
-              ]} 
+                styles.card,
+                isEven ? styles.cardLeft : styles.cardRight,
+              ]}
               onPress={() => navigation.navigate('CategoryDetail', { category: item })}
             >
-              <ImageBackground 
-                source={{ uri: item.image }} 
-                style={styles.cardImage} 
+              <ImageBackground
+                source={{ uri: item.image }}
+                style={styles.cardImage}
                 imageStyle={{ borderRadius: 20 }}
               >
                 <View style={styles.cardOverlay}>
@@ -62,32 +61,34 @@ const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
     backgroundColor: '#F8FAFC',
-    padding: 24,
+    paddingHorizontal: isWeb ? 28 : 18,
+    paddingTop: isWeb ? 26 : 18,
+    paddingBottom: 120,
     alignItems: 'center',
   },
   list: {
     width: '100%',
-    maxWidth: 1000, // Anasayfa ile uyumlu maksimum genişlik
-    marginTop: 10,
+    maxWidth: 980,
+    marginTop: 6,
   },
   card: {
-    width: isWeb ? '75%' : '90%', // Web'de ekranın %75'ini kaplar, girinti hissi verir
-    height: isWeb ? 200 : 140, // Web'de kartlar daha yüksek ve ferah
-    marginBottom: 30,
-    borderRadius: 20,
+    width: isWeb ? '68%' : '92%',
+    height: isWeb ? 158 : 132,
+    marginBottom: isWeb ? 24 : 18,
+    borderRadius: 16,
     overflow: 'hidden',
     backgroundColor: '#FFFFFF',
     shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.07,
+    shadowRadius: 14,
+    elevation: 3,
   },
   cardLeft: {
-    alignSelf: 'flex-start', // Sola yasla (Girintili)
+    alignSelf: 'flex-start',
   },
   cardRight: {
-    alignSelf: 'flex-end', // Sağa yasla (Çıkıntılı)
+    alignSelf: 'flex-end',
   },
   cardImage: {
     width: '100%',
@@ -95,29 +96,32 @@ const styles = StyleSheet.create({
     justifyContent: 'flex-end',
   },
   cardOverlay: {
-    backgroundColor: 'rgba(30, 58, 138, 0.85)', // Yarı şeffaf kurumsal Lacivert
-    paddingVertical: 18,
-    paddingHorizontal: 24,
+    backgroundColor: 'rgba(30, 58, 138, 0.85)',
+    minHeight: isWeb ? 58 : 50,
+    paddingVertical: isWeb ? 13 : 11,
+    paddingHorizontal: isWeb ? 22 : 16,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    borderBottomLeftRadius: 20,
-    borderBottomRightRadius: 20,
+    borderBottomLeftRadius: 16,
+    borderBottomRightRadius: 16,
   },
   cardName: {
     color: '#FFFFFF',
-    fontSize: isWeb ? 20 : 16,
+    fontSize: isWeb ? 18 : 15,
     fontWeight: 'bold',
-    letterSpacing: 0.5,
+    letterSpacing: 0.2,
+    flex: 1,
+    marginRight: 12,
   },
   badge: {
     backgroundColor: '#FFFFFF',
     paddingVertical: 4,
-    paddingHorizontal: 12,
+    paddingHorizontal: 11,
     borderRadius: 12,
   },
   badgeText: {
-    color: '#1E3A8A', // Lacivert metin
+    color: '#1E3A8A',
     fontWeight: 'bold',
     fontSize: 12,
   },

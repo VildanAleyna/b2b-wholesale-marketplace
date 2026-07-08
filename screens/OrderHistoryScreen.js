@@ -12,14 +12,18 @@ import {
   Modal,
   TextInput,
   Alert,
-  Platform
+  Platform,
+  useWindowDimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../context/AuthContext';
 import { fetchUserOrders, submitOrderRating, updateOrderStatus } from '../data/Data';
+import { getResponsiveContentWidth, isWeb } from '../constants/responsiveLayout';
 
 const OrderHistoryScreen = () => {
   const { user } = useContext(AuthContext);
+  const { width: windowWidth } = useWindowDimensions();
+  const webContentWidth = getResponsiveContentWidth(windowWidth, 1100);
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -182,7 +186,7 @@ const OrderHistoryScreen = () => {
           : '#A7F3D0';
 
     return (
-      <View style={styles.orderCard}>
+      <View style={[styles.orderCard, isWeb && { width: webContentWidth }]}>
         {/* Sipariş Başlığı */}
         <View style={styles.orderHeader}>
           <View style={{ flex: 1, marginRight: 10 }}>
@@ -405,8 +409,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   orderCard: {
-    width: Platform.OS === 'web' ? 850 : '100%',
-    maxWidth: 850,
+    width: '100%',
+    maxWidth: 1100,
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 24,

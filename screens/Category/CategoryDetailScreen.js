@@ -230,7 +230,7 @@ const styles = StyleSheet.create({
   },
   header: {
     width: '100%',
-    maxWidth: 1000,
+    maxWidth: 1280,
     marginBottom: 20,
     paddingHorizontal: 8,
   },
@@ -249,7 +249,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'flex-start',
     width: '100%',
-    maxWidth: 1000,
+    maxWidth: 1280,
   },
   column: {
     width: isWeb ? '23%' : '48%', // Anasayfa ile aynı ızgara tasarımı

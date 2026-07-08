@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
     flexWrap: 'wrap',
     justifyContent: 'flex-start', // Soldan sağa doğru dizilir
     width: '100%',
-    maxWidth: 1000,
+    maxWidth: 1280,
   },
   column: {
     width: isWeb ? '23%' : '48%', // Anasayfa ile birebir uyumlu kolon genişlikleri

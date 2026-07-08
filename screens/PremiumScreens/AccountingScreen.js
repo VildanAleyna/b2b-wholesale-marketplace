@@ -2,7 +2,6 @@ import React, { useContext, useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
-  Platform,
   RefreshControl,
   SafeAreaView,
   StyleSheet,
@@ -15,10 +14,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { AuthContext } from '../../context/AuthContext';
 import { fetchWholesalerAccounts } from '../../data/Data';
-
-const FONT_FAMILY = Platform.OS === 'web'
-  ? 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif'
-  : 'System';
+import { getResponsiveContentWidth, isWeb } from '../../constants/responsiveLayout';
+import { CARD_STYLES, COLORS, FONT_FAMILY } from '../../constants/uiTheme';
+import EmptyState from '../../components/ui/EmptyState';
+import PageHeader from '../../components/ui/PageHeader';
+import SummaryMetricCard from '../../components/ui/SummaryMetricCard';
 
 const formatMoney = (value) => `${Number(value || 0).toLocaleString('tr-TR')} ₺`;
 
@@ -26,6 +26,7 @@ const AccountingScreen = () => {
   const { user } = useContext(AuthContext);
   const { width } = useWindowDimensions();
   const isLargeScreen = width > 900;
+  const webContentWidth = getResponsiveContentWidth(width, 1100);
 
   const [accounts, setAccounts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -156,35 +157,18 @@ const AccountingScreen = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <View style={[styles.headerRow, isLargeScreen && styles.headerRowLarge]}>
-          <View>
-            <Text style={styles.eyebrow}>Muhasebe Paneli</Text>
-            <Text style={styles.pageTitle}>Cari Hesaplar ve Tahsilat</Text>
-            <Text style={styles.subtitle}>Bayilerinizin borç, limit, tahsilat ve risk durumunu buradan takip edin.</Text>
-          </View>
-        </View>
+        <PageHeader
+          eyebrow="Muhasebe Paneli"
+          title="Cari Hesaplar ve Tahsilat"
+          subtitle="Bayilerinizin borç, limit, tahsilat ve risk durumunu buradan takip edin."
+          style={[styles.headerRow, isLargeScreen && styles.headerRowLarge, isWeb && { width: webContentWidth }]}
+        />
 
-        <View style={styles.summaryGrid}>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Toplam Alacak</Text>
-            <Text style={styles.summaryValue}>{formatMoney(totalDebt)}</Text>
-            <Text style={styles.summaryHint}>Bayilerden tahsil edilecek güncel borç</Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Toplam Limit</Text>
-            <Text style={styles.summaryValue}>{formatMoney(totalLimit)}</Text>
-            <Text style={styles.summaryHint}>Tanımlı cari limit toplamı</Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Bekleyen Ödeme</Text>
-            <Text style={styles.summaryValueWarning}>{formatMoney(pendingPayments)}</Text>
-            <Text style={styles.summaryHint}>Onay bekleyen ödeme bildirimi</Text>
-          </View>
-          <View style={styles.summaryCard}>
-            <Text style={styles.summaryLabel}>Riskli Bayi</Text>
-            <Text style={styles.summaryValueWarning}>{riskAccounts}</Text>
-            <Text style={styles.summaryHint}>Limit kullanım oranı %80 ve üzeri</Text>
-          </View>
+        <View style={[styles.summaryGrid, isWeb && { width: webContentWidth }]}>
+          <SummaryMetricCard label="Toplam Alacak" value={formatMoney(totalDebt)} hint="Bayilerden tahsil edilecek güncel borç" />
+          <SummaryMetricCard label="Toplam Limit" value={formatMoney(totalLimit)} hint="Tanımlı cari limit toplamı" />
+          <SummaryMetricCard label="Bekleyen Ödeme" value={formatMoney(pendingPayments)} hint="Onay bekleyen ödeme bildirimi" tone="warning" />
+          <SummaryMetricCard label="Riskli Bayi" value={riskAccounts} hint="Limit kullanım oranı %80 ve üzeri" tone="warning" />
         </View>
 
         {error ? (
@@ -201,14 +185,14 @@ const AccountingScreen = () => {
             data={accounts}
             renderItem={renderAccount}
             keyExtractor={(item) => item.customer?._id || item.customer?.email}
-            contentContainerStyle={styles.listContent}
+            contentContainerStyle={[styles.listContent, isWeb && { width: webContentWidth }]}
             refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
             ListEmptyComponent={
-              <View style={styles.centerState}>
-                <Ionicons name="folder-open-outline" size={56} color="#CBD5E1" />
-                <Text style={styles.centerTitle}>Cari hesap bulunamadı</Text>
-                <Text style={styles.centerText}>Bu toptancıya bağlı bayi cari hesabı oluştuğunda burada görünecek.</Text>
-              </View>
+              <EmptyState
+                icon="folder-open-outline"
+                title="Cari hesap bulunamadı"
+                subtitle="Bu toptancıya bağlı bayi cari hesabı oluştuğunda burada görünecek."
+              />
             }
           />
         )}
@@ -220,7 +204,7 @@ const AccountingScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: COLORS.appBg,
   },
   content: {
     flex: 1,
@@ -230,11 +214,11 @@ const styles = StyleSheet.create({
   },
   headerRow: {
     width: '100%',
-    maxWidth: 1000,
+    maxWidth: 1100,
     marginBottom: 16,
   },
   headerRowLarge: {
-    maxWidth: 1000,
+    maxWidth: 1100,
   },
   eyebrow: {
     fontFamily: FONT_FAMILY,
@@ -259,7 +243,7 @@ const styles = StyleSheet.create({
   },
   summaryGrid: {
     width: '100%',
-    maxWidth: 1000,
+    maxWidth: 1100,
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginHorizontal: -6,
@@ -268,18 +252,10 @@ const styles = StyleSheet.create({
   summaryCard: {
     flex: 1,
     minWidth: 210,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 12,
+    ...CARD_STYLES.panel,
     padding: 14,
     marginHorizontal: 6,
     marginBottom: 10,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
-    elevation: 1,
   },
   summaryLabel: {
     fontFamily: FONT_FAMILY,
@@ -311,22 +287,14 @@ const styles = StyleSheet.create({
   },
   listContent: {
     width: '100%',
-    maxWidth: 1000,
+    maxWidth: 1100,
     paddingBottom: 120,
   },
   accountCard: {
     width: '100%',
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 12,
+    ...CARD_STYLES.panel,
     padding: 16,
     marginBottom: 12,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 1,
   },
   cardHeader: {
     flexDirection: 'row',

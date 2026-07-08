@@ -8,17 +8,13 @@ import {
   TouchableOpacity,
   ScrollView,
   ActivityIndicator,
-  Platform,
   useWindowDimensions
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthContext } from '../../context/AuthContext';
 import { updateUserProfile } from '../../data/Data';
-
-const FONT_FAMILY = Platform.OS === 'web' 
-  ? 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif' 
-  : 'System';
+import { FONT_FAMILY } from '../../constants/uiTheme';
 
 const EditProfileScreen = ({ navigation }) => {
   const { user, setUser } = useContext(AuthContext);
@@ -283,7 +279,7 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   cardLarge: {
-    maxWidth: 1000, // Geniş ekranlarda mükemmel dolgunluk için 1000px yapıldı
+    maxWidth: 1100,
     minHeight: 520, // Kutu yassılığını engelleyen, masaüstü için dengeli asgari yükseklik
     padding: 40,
     justifyContent: 'space-between',

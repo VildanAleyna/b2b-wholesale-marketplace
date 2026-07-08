@@ -1,8 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, TouchableWithoutFeedback, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, TouchableWithoutFeedback, Alert, useWindowDimensions } from 'react-native';
 import { registerUser } from '../data/Data';
+import { getModalWidth, isWeb } from '../constants/responsiveLayout';
 
 const RegisterModalComponent = ({ isVisible, onClose, onNavigateToLogin }) => {
+  const { width: windowWidth } = useWindowDimensions();
+  const modalWidth = getModalWidth(windowWidth, 520);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -51,7 +54,7 @@ const RegisterModalComponent = ({ isVisible, onClose, onNavigateToLogin }) => {
       <TouchableWithoutFeedback onPress={onClose}>
         <View style={styles.modalContainer}>
           <TouchableWithoutFeedback onPress={() => {}}>
-            <View style={styles.modalContent}>
+            <View style={[styles.modalContent, isWeb && { width: modalWidth }]}>
               <Text style={styles.modalTitle}>Kayıt</Text>
               <TextInput
                 placeholder="Ad Soyad"
@@ -122,7 +125,6 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     width: '90%',
-    maxWidth: 400,
     backgroundColor: '#ffffff',
     borderRadius: 15,
     padding: 20,

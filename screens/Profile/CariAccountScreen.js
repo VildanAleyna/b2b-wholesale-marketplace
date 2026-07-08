@@ -15,6 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../../context/AuthContext';
 import { fetchUserCariAccounts, submitPaymentNotification, fetchUserStatement } from '../../data/Data';
+import AppToast from '../../components/ui/AppToast';
 
 const CariAccountScreen = ({ navigation }) => {
   const { user } = useContext(AuthContext);
@@ -127,12 +128,7 @@ const CariAccountScreen = ({ navigation }) => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {toast.visible && (
-        <View style={styles.toast}>
-          <Ionicons name="information-circle" size={18} color="#FFFFFF" style={{ marginRight: 8 }} />
-          <Text style={styles.toastText}>{toast.message}</Text>
-        </View>
-      )}
+      <AppToast visible={toast.visible} message={toast.message} />
 
       <ScrollView
         contentContainerStyle={styles.scrollView}
@@ -448,7 +444,7 @@ const styles = StyleSheet.create({
   },
   header: {
     width: '100%',
-    maxWidth: 950,
+    maxWidth: 1100,
     marginBottom: 25,
   },
   headerTitle: {
@@ -464,7 +460,7 @@ const styles = StyleSheet.create({
   },
   accountCard: {
     width: '100%',
-    maxWidth: 950,
+    maxWidth: 1100,
     backgroundColor: '#FFFFFF',
     borderRadius: 16,
     padding: 20,
@@ -675,7 +671,7 @@ const styles = StyleSheet.create({
   statementModalContent: {
     maxHeight: '85%',
     width: '95%',
-    maxWidth: 950,
+    maxWidth: 1100,
   },
   statementLoadingBox: {
     paddingVertical: 60,

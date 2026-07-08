@@ -17,10 +17,10 @@ import { Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '../../context/AuthContext';
 import { fetchEmployees, addEmployee, deleteEmployee } from '../../data/Data';
 import { EMPLOYEE_ROLES, EMPLOYEE_ROLE_DETAILS, getEmployeeRoleDetail } from '../../constants/roles';
-
-const FONT_FAMILY = Platform.OS === 'web' 
-  ? 'system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif' 
-  : 'System';
+import { getResponsiveContentWidth, isWeb } from '../../constants/responsiveLayout';
+import { CARD_STYLES, COLORS, FONT_FAMILY } from '../../constants/uiTheme';
+import AppToast from '../../components/ui/AppToast';
+import PageHeader from '../../components/ui/PageHeader';
 
 const ROLES = EMPLOYEE_ROLE_DETAILS;
 
@@ -28,6 +28,7 @@ const EmployeesScreen = () => {
   const { user } = useContext(AuthContext);
   const { width } = useWindowDimensions();
   const isLargeScreen = width > 768;
+  const webContentWidth = getResponsiveContentWidth(width, 1100);
 
   const [employees, setEmployees] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -225,36 +226,27 @@ const EmployeesScreen = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      {toast.visible && (
-        <View style={[styles.toast, toast.type === 'error' ? styles.toastError : styles.toastSuccess]}>
-          <Ionicons 
-            name={toast.type === 'success' ? "checkmark-circle" : "alert-circle"} 
-            size={18} 
-            color="#FFFFFF" 
-            style={{ marginRight: 8 }} 
-          />
-          <Text style={styles.toastText}>{toast.message}</Text>
-        </View>
-      )}
+      <AppToast visible={toast.visible} message={toast.message} type={toast.type} />
 
       <View style={styles.contentContainer}>
         {/* Üst Yönetim Alanı */}
-        <View style={[styles.headerRow, isLargeScreen && styles.headerRowLarge]}>
-          <View>
-            <Text style={styles.eyebrow}>Toptancı Operasyon Paneli</Text>
-            <Text style={styles.title}>Personel ve Yetki Yönetimi</Text>
-            <Text style={styles.subtitle}>Depo, muhasebe ve satış ekibinizin sisteme erişimini buradan yönetin.</Text>
-          </View>
-          <TouchableOpacity 
-            style={styles.addBtn}
-            onPress={() => setModalVisible(true)}
-          >
-            <Ionicons name="add-circle" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
-            <Text style={styles.addBtnText}>Yeni Personel Ekle</Text>
-          </TouchableOpacity>
+        <View style={[styles.headerRow, isLargeScreen && styles.headerRowLarge, isWeb && { width: webContentWidth }]}>
+          <PageHeader
+            eyebrow={'Toptanc\u0131 Operasyon Paneli'}
+            title={'Personel ve Yetki Y\u00f6netimi'}
+            subtitle={'Depo, muhasebe ve sat\u0131\u015f ekibinizin sisteme eri\u015fimini buradan y\u00f6netin.'}
+            rightContent={(
+              <TouchableOpacity
+                style={styles.addBtn}
+                onPress={() => setModalVisible(true)}
+              >
+                <Ionicons name="add-circle" size={18} color="#FFFFFF" style={{ marginRight: 6 }} />
+                <Text style={styles.addBtnText}>Yeni Personel Ekle</Text>
+              </TouchableOpacity>
+            )}
+          />
         </View>
-
-        <View style={[styles.summaryGrid, isLargeScreen && styles.summaryGridLarge]}>
+        <View style={[styles.summaryGrid, isLargeScreen && styles.summaryGridLarge, isWeb && { width: webContentWidth }]}>
           <View style={styles.summaryCard}>
             <Text style={styles.summaryLabel}>Toplam Personel</Text>
             <Text style={styles.summaryValue}>{employees.length}</Text>
@@ -295,7 +287,7 @@ const EmployeesScreen = () => {
             data={employees}
             renderItem={renderItem}
             keyExtractor={(item, index) => index.toString()}
-            contentContainerStyle={[styles.listContent, isLargeScreen && styles.listContentLarge]}
+            contentContainerStyle={[styles.listContent, isLargeScreen && styles.listContentLarge, isWeb && { width: webContentWidth }]}
             ListEmptyComponent={
               <View style={styles.emptyContainer}>
                 <Ionicons name="people-outline" size={60} color="#CBD5E1" style={{ marginBottom: 10 }} />
@@ -428,7 +420,7 @@ const EmployeesScreen = () => {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8FAFC',
+    backgroundColor: COLORS.appBg,
   },
   contentContainer: {
     flex: 1,
@@ -436,50 +428,17 @@ const styles = StyleSheet.create({
     width: '100%',
     padding: 24,
   },
-  toast: {
-    position: 'absolute',
-    top: 24,
-    left: '50%',
-    transform: [{ translateX: -190 }],
-    width: 380,
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 20,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 9999,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.1,
-    shadowRadius: 15,
-    elevation: 6,
-  },
-  toastSuccess: {
-    backgroundColor: '#10B981',
-  },
-  toastError: {
-    backgroundColor: '#EF4444',
-  },
-  toastText: {
-    fontFamily: FONT_FAMILY,
-    color: '#FFFFFF',
-    fontSize: 13,
-    fontWeight: '700',
-    textAlign: 'center',
-    lineHeight: 18,
-  },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     flexWrap: 'wrap',
     width: '100%',
-    maxWidth: 1000,
+    maxWidth: 1100,
     marginBottom: 16,
   },
   headerRowLarge: {
-    maxWidth: 1000,
+    maxWidth: 1100,
   },
   eyebrow: {
     fontFamily: FONT_FAMILY,
@@ -524,30 +483,22 @@ const styles = StyleSheet.create({
   },
   summaryGrid: {
     width: '100%',
-    maxWidth: 1000,
+    maxWidth: 1100,
     flexDirection: 'row',
     flexWrap: 'wrap',
     marginHorizontal: -6,
     marginBottom: 18,
   },
   summaryGridLarge: {
-    maxWidth: 1000,
+    maxWidth: 1100,
   },
   summaryCard: {
     flex: 1,
     minWidth: 210,
-    backgroundColor: '#FFFFFF',
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
-    borderRadius: 12,
+    ...CARD_STYLES.panel,
     padding: 14,
     marginHorizontal: 6,
     marginBottom: 10,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
-    elevation: 1,
   },
   summaryRoleHeader: {
     flexDirection: 'row',
@@ -595,30 +546,22 @@ const styles = StyleSheet.create({
   },
   listContent: {
     width: '100%',
-    maxWidth: 1000,
+    maxWidth: 1100,
     paddingBottom: 40,
     alignItems: 'center', // Flatlist elemanlarının Web'de düzgün hizalanmasını sağlar
   },
   listContentLarge: {
-    maxWidth: 1000,
+    maxWidth: 1100,
   },
   employeeCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    ...CARD_STYLES.panel,
     padding: 18,
     marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#E2E8F0',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    width: Platform.OS === 'web' ? 1000 : '100%', // Web'de büzüşmeyi önleyip başlıkla tam hizalar
-    maxWidth: 1000,
-    shadowColor: '#0F172A',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 1,
+    width: '100%',
+    maxWidth: 1100,
   },
   cardLeft: {
     flexDirection: 'row',
