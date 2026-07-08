@@ -224,18 +224,6 @@ Main API groups:
 
 A Postman collection can be added later for easier API testing and review.
 
-## Screenshots
-
-Screenshots or a short demo GIF can be added here to present the main flows:
-
-- Dealer product browsing
-- Cart and order flow
-- Wholesaler order management
-- Stock management
-- Payment approvals
-- Employee management
-- Operational insights
-
 ## Demo Data
 
 The seed script creates a demo dataset for development and presentation:
