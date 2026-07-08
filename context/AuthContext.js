@@ -14,17 +14,27 @@ const AuthProvider = ({ children }) => {
   const loadUser = async () => {
     try {
       const savedUser = await AsyncStorage.getItem('user');
-      if (savedUser) {
+      const savedToken = await AsyncStorage.getItem('authToken');
+
+      if (savedUser && savedToken) {
         setUser(JSON.parse(savedUser));
+      } else if (savedUser && !savedToken) {
+        await AsyncStorage.removeItem('user');
       }
     } catch (error) {
-      console.error("Kullanıcıyı yükleme hatası:", error);
+      console.error('Kullanici yukleme hatasi:', error);
     }
   };
-
   const login = async (email, password) => {
     try {
-      const authenticatedUser = await loginUser(email, password);
+      const authResponse = await loginUser(email, password);
+      const authenticatedUser = authResponse.user || authResponse;
+      const token = authResponse.token;
+
+      if (token) {
+        await AsyncStorage.setItem('authToken', token);
+      }
+
       setUser(authenticatedUser);
       await AsyncStorage.setItem('user', JSON.stringify(authenticatedUser));
       return { success: true };
@@ -40,6 +50,7 @@ const AuthProvider = ({ children }) => {
   const logout = async () => {
     try {
       await AsyncStorage.removeItem('user');
+      await AsyncStorage.removeItem('authToken');
       setUser(null);
     } catch (error) {
       console.error('Çıkış sırasında bir hata oluştu:', error);
