@@ -1,42 +1,22 @@
 const mongoose = require('mongoose');
-const crypto = require('crypto');
-const fs = require('fs');
-const path = require('path');
-
-const loadEnvFile = () => {
-    const envPath = path.join(__dirname, '.env');
-    if (!fs.existsSync(envPath)) {
-        return;
-    }
-
-    const lines = fs.readFileSync(envPath, 'utf8').split(/\r?\n/);
-    lines.forEach((line) => {
-        const trimmed = line.trim();
-        if (!trimmed || trimmed.startsWith('#')) {
-            return;
-        }
-
-        const separatorIndex = trimmed.indexOf('=');
-        if (separatorIndex === -1) {
-            return;
-        }
-
-        const key = trimmed.slice(0, separatorIndex).trim();
-        const value = trimmed.slice(separatorIndex + 1).trim().replace(/^['"]|['"]$/g, '');
-        if (key && process.env[key] === undefined) {
-            process.env[key] = value;
-        }
-    });
-};
+const { loadEnvFile } = require('./config/env');
+const { hashPassword } = require('./utils/security');
+const { Product, User, PaymentNotification, Category, Model, Brand } = require('./models');
+const { buildSeedProducts } = require('./data/seedProductCatalog');
 
 loadEnvFile();
 
 // MongoDB Bağlantısı
 const MONGO_URI = process.env.MONGO_URI || 'mongodb://localhost:27017/Toptanci';
+const CUSTOMER_COUNT = 15;
+const PRODUCT_TARGET_COUNT = 60;
+const ORDER_COUNT = 200;
+const ORDER_HISTORY_DAYS = 60;
+const PAYMENT_NOTIFICATION_COUNT = 30;
 
-const hashPassword = (password) => {
-    return crypto.createHash('sha256').update(password).digest('hex');
-};
+const pick = (items, index) => items[index % items.length];
+const randInt = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
+const daysAgo = (days) => new Date(Date.now() - days * 24 * 60 * 60 * 1000);
 
 const seedDatabase = async () => {
     try {
@@ -47,56 +27,6 @@ const seedDatabase = async () => {
         // Koleksiyonları temizle
         await mongoose.connection.db.dropDatabase();
         console.log('Eski veritabanı temizlendi.');
-
-        // Modelleri tanımla (server/index.js ile birebir uyumlu)
-        const Category = mongoose.model('Category', new mongoose.Schema({
-            name: String,
-            image: String,
-            modelIds: [mongoose.Schema.Types.ObjectId]
-        }));
-
-        const Model = mongoose.model('Model', new mongoose.Schema({
-            name: String,
-            brandIds: [mongoose.Schema.Types.ObjectId]
-        }));
-
-        const Brand = mongoose.model('Brand', new mongoose.Schema({
-            name: { type: String, required: true },
-            productIds: [{ type: mongoose.Schema.Types.ObjectId, ref: 'Product' }]
-        }));
-
-        const Product = mongoose.model('Product', new mongoose.Schema({
-            title: { type: String, required: true },
-            categoryId: { type: mongoose.Schema.Types.ObjectId, required: true },
-            modelId: { type: mongoose.Schema.Types.ObjectId, required: true },
-            brandId: { type: mongoose.Schema.Types.ObjectId, required: true },
-            image: { type: String, required: true },
-            minOrderQuantity: { type: Number, default: 1 },
-            wholesalers: [{
-                usersID: { type: mongoose.Schema.Types.ObjectId, required: true },
-                name: String,
-                price: { type: Number, required: true }, 
-                stockQuantity: { type: Number, required: true },
-                minStockLevel: { type: Number, required: true },
-                description: { type: String }
-            }]
-        }));
-
-        const User = mongoose.model('User', new mongoose.Schema({
-            name: String,
-            email: String,
-            password: String,
-            taxNumber: String,
-            wholesaler: Boolean,
-            address: String,
-            phone: String,
-            tier: String, // Gold, Silver, Bronze
-            wholesalerAccounts: [Object],
-            employee: [Object],
-            favorites: [mongoose.Schema.Types.ObjectId],
-            products: [Object],
-            orders: [Object]
-        }));
 
         // 1. Örnek Toptancı ve Müşteri Kullanıcıları Oluştur
         const wholesalerId = new mongoose.Types.ObjectId();
@@ -150,6 +80,56 @@ const seedDatabase = async () => {
         console.log('Kullanıcılar oluşturuldu.');
 
         // 2. Markaları Oluştur
+        const extraCustomerNames = [
+            'Marmara Perakende',
+            'Ege Market Grubu',
+            'Akdeniz Ev Gerecleri',
+            'Karadeniz Teknoloji',
+            'Anadolu Gross',
+            'Yildiz Bayi',
+            'Kuzey Ticaret',
+            'Delta Magazacilik',
+            'Bereket Market',
+            'Kale Elektronik',
+            'Sahil Zucaciye',
+            'Merkez Tedarik',
+            'Nehir AVM',
+            'Poyraz Market'
+        ];
+
+        const extraCustomers = extraCustomerNames.slice(0, Math.max(0, CUSTOMER_COUNT - 1)).map((name, index) => {
+            const customerNo = index + 2;
+            const creditLimit = pick([90000, 120000, 150000, 180000, 220000], index);
+
+            return {
+                name,
+                email: `bayi${customerNo}@demo.com`,
+                password: hashPassword('1234'),
+                wholesaler: false,
+                favorites: [],
+                tier: pick(['Bronze', 'Silver', 'Gold'], index),
+                companyName: name,
+                authorizedPerson: pick(['Mehmet Kaya', 'Ayse Demir', 'Burak Celik', 'Elif Aydin', 'Can Yilmaz'], index),
+                taxNumber: `12345678${String(customerNo).padStart(2, '0')}`,
+                taxOffice: pick(['Ikitelli Vergi Dairesi', 'Kadikoy Vergi Dairesi', 'Bornova Vergi Dairesi'], index),
+                address: `${name} Depo Adresi No: ${customerNo}, Istanbul`,
+                phone: `+90 555 200 ${String(customerNo).padStart(2, '0')} ${String(10 + customerNo).padStart(2, '0')}`,
+                notificationEmail: true,
+                notificationLimitWarning: true,
+                wholesalerAccounts: [{
+                    wholesalerId,
+                    creditLimit,
+                    currentDebt: 0
+                }],
+                orders: []
+            };
+        });
+
+        if (extraCustomers.length) {
+            await User.insertMany(extraCustomers);
+            console.log(`${extraCustomers.length} ek bayi olusturuldu.`);
+        }
+
         const brandStanley = await Brand.create({ name: 'Stanley', productIds: [] });
         const brandDyson = await Brand.create({ name: 'Dyson', productIds: [] });
         const brandXiaomi = await Brand.create({ name: 'Xiaomi', productIds: [] });
@@ -203,256 +183,64 @@ const seedDatabase = async () => {
         });
         console.log('Kategoriler oluşturuldu.');
 
-        // 5. Ürünleri Oluştur (Tam 24 Adet)
-        const productsData = [
-            // Sayfa 1
-            {
-                title: 'Stanley Klasik Vakumlu Termos 1.4 L',
-                categoryId: catMutfak._id,
-                modelId: modelTermos._id,
-                brandId: brandStanley._id,
-                image: 'https://images.unsplash.com/photo-1602143407151-7111542de6e8?q=80&w=400',
-                price: 1850,
-                stock: 120,
-                moq: 5, // Minimum sipariş adedi
-                desc: 'Çift katmanlı paslanmaz çelik vakum yalıtımı ile sıcak/soğuk tutar.'
-            },
-            {
-                title: 'Dyson V15 Detect Kablosuz Süpürge',
-                categoryId: catElektronik._id,
-                modelId: modelSupurge._id,
-                brandId: brandDyson._id,
-                image: 'https://images.unsplash.com/photo-1558317374-067fb5f30001?q=80&w=400',
-                price: 24500,
-                stock: 15,
-                moq: 2, // Minimum sipariş adedi
-                desc: 'Lazer aydınlatmalı ve akıllı emiş gücü ayarlı kablosuz dikey süpürge.'
-            },
-            {
-                title: 'Xiaomi Redmi Note 13 Pro 256GB',
-                categoryId: catElektronik._id,
-                modelId: modelTelefon._id,
-                brandId: brandXiaomi._id,
-                image: 'https://images.unsplash.com/photo-1598327105666-5b89351aff97?q=80&w=400',
-                price: 14500,
-                stock: 45,
-                desc: '200 MP kamera ve AMOLED ekran özellikli akıllı telefon.'
-            },
-            {
-                title: 'Karaca Hatır Hüp Türk Kahve Makinesi',
-                categoryId: catMutfak._id,
-                modelId: modelKahveci._id,
-                brandId: brandKaraca._id,
-                image: 'https://images.unsplash.com/photo-1514432324607-a09d9b4aefdd?q=80&w=400',
-                price: 2100,
-                stock: 60,
-                desc: 'Köz tadında ağır ağır pişirme ve taşma önleyici akıllı sensör.'
-            },
-            {
-                title: 'Stanley Trigger Action Seyahat Bardağı 0.47 L',
-                categoryId: catMutfak._id,
-                modelId: modelTermos._id,
-                brandId: brandStanley._id,
-                image: 'https://images.unsplash.com/photo-1577937927133-66ef06acdf18?q=80&w=400',
-                price: 1100,
-                stock: 150,
-                desc: 'Tek elle açılıp kapanabilen sızdırmaz seyahat bardağı.'
-            },
-            {
-                title: 'Dyson Airwrap Multi-Styler Saç Şekillendirici',
-                categoryId: catBakim._id, // Kişisel Bakım
-                modelId: modelAirwrap._id,
-                brandId: brandDyson._id,
-                image: 'https://images.unsplash.com/photo-1522337360788-8b13dee7a37e?q=80&w=400',
-                price: 18900,
-                stock: 20,
-                desc: 'Aşırı ısı olmadan Coanda etkisiyle saçları şekillendirir ve kurutur.'
-            },
-            {
-                title: 'Xiaomi Roborock S8 Akıllı Robot Süpürge',
-                categoryId: catElektronik._id,
-                modelId: modelRobot._id,
-                brandId: brandXiaomi._id,
-                image: 'https://images.unsplash.com/photo-1518640467707-6811f4a6ab73?q=80&w=400',
-                price: 21500,
-                stock: 30,
-                desc: '6000 Pa emiş gücü ve çift fırçalı derinlemesine zemin temizliği.'
-            },
-            {
-                title: 'Karaca Bio Granit Tost Makinesi',
-                categoryId: catMutfak._id,
-                modelId: modelTost._id,
-                brandId: brandKaraca._id,
-                image: 'https://images.unsplash.com/photo-1584269600464-37b1b58a9fe7?q=80&w=400',
-                price: 2400,
-                stock: 80,
-                desc: 'Granit kaplama plakalar ve 180 derece açılabilen gövde.'
-            },
-            // Sayfa 2
-            {
-                title: 'Stanley Adventure Seyahat Matarası 0.23 L',
-                categoryId: catMutfak._id,
-                modelId: modelTermos._id,
-                brandId: brandStanley._id,
-                image: 'https://images.unsplash.com/photo-1619551486243-15e078b5463f?q=80&w=400',
-                price: 950,
-                stock: 90,
-                desc: 'Paslanmaz çelik, sızdırmaz cep tipi klasik matara.'
-            },
-            {
-                title: 'Dyson Purifier Hot+Cool Hava Temizleyici',
-                categoryId: catElektronik._id,
-                modelId: modelSupurge._id,
-                brandId: brandDyson._id,
-                image: 'https://images.unsplash.com/photo-1585338107529-13afc5f02586?q=80&w=400',
-                price: 28500,
-                stock: 10,
-                desc: 'HEPA filtreli hava temizleme, ısıtma ve vantilatör özellikli cihaz.'
-            },
-            {
-                title: 'Xiaomi 20000mAh Hızlı Şarj Powerbank',
-                categoryId: catElektronik._id,
-                modelId: modelPowerbank._id,
-                brandId: brandXiaomi._id,
-                image: 'https://images.unsplash.com/photo-1609592424085-f5b244799017?q=80&w=400',
-                price: 1200,
-                stock: 200,
-                desc: 'Çift USB çıkışlı 18W hızlı şarj destekli taşınabilir batarya.'
-            },
-            {
-                title: 'Karaca Çelik Çaydanlık Takımı',
-                categoryId: catMutfak._id,
-                modelId: modelTeapot._id,
-                brandId: brandKaraca._id,
-                image: 'https://images.unsplash.com/photo-1576092768241-dec231879fc3?q=80&w=400',
-                price: 1550,
-                stock: 70,
-                desc: 'Paslanmaz çelik gövde ve ısıya dayanıklı kulp tasarımı.'
-            },
-            {
-                title: 'Philips Airfryer XXL Fritöz',
-                categoryId: catMutfak._id,
-                modelId: modelAirfryer._id,
-                brandId: brandPhilips._id,
-                image: 'https://images.unsplash.com/photo-1621972750749-0fbb1abb7736?q=80&w=400',
-                price: 7400,
-                stock: 40,
-                desc: 'Sıcak hava sirkülasyonu ile yağsız çıtır pişirme teknolojisi.'
-            },
-            {
-                title: 'Philips Daily Collection Blender',
-                categoryId: catMutfak._id,
-                modelId: modelBlender._id,
-                brandId: brandPhilips._id,
-                image: 'https://images.unsplash.com/photo-1578643463396-0997cb5328c1?q=80&w=400',
-                price: 2200,
-                stock: 110,
-                desc: 'Cam sürahili, buz kırma özellikli güçlü mutfak blenderı.'
-            },
-            {
-                title: 'Apple iPhone 15 Pro 128GB',
-                categoryId: catElektronik._id,
-                modelId: modelTelefon._id,
-                brandId: brandApple._id,
-                image: 'https://images.unsplash.com/photo-1510557880182-3d4d3cba35a5?q=80&w=400',
-                price: 69900,
-                stock: 25,
-                desc: 'Titanyum kasa tasarımı, A17 Pro çip ve profesyonel kamera sistemi.'
-            },
-            {
-                title: 'Apple iPad Air 5. Nesil',
-                categoryId: catElektronik._id,
-                modelId: modelTablet._id,
-                brandId: brandApple._id,
-                image: 'https://images.unsplash.com/photo-1544244015-0df4b3ffc6b0?q=80&w=400',
-                price: 24500,
-                stock: 35,
-                desc: 'Apple M1 çipli, Liquid Retina ekranlı ultra taşınabilir tablet.'
-            },
-            // Sayfa 3
-            {
-                title: 'Apple AirPods Pro 2. Nesil',
-                categoryId: catSes._id, // Ses Sistemleri
-                modelId: modelAirPods._id,
-                brandId: brandApple._id,
-                image: 'https://images.unsplash.com/photo-1588449668365-d15e397f6787?q=80&w=400',
-                price: 8200,
-                stock: 100,
-                desc: 'Aktif gürültü engelleme ve adaptif şeffaf mod özellikli kulaklık.'
-            },
-            {
-                title: 'Samsung Galaxy S24 Ultra 512GB',
-                categoryId: catElektronik._id,
-                modelId: modelTelefon._id,
-                brandId: brandSamsung._id,
-                image: 'https://images.unsplash.com/photo-1610945265064-0e34e5519bbf?q=80&w=400',
-                price: 68900,
-                stock: 18,
-                desc: 'Entegre S-Pen, yapay zeka fotoğraf özellikleri ve titanyum gövde.'
-            },
-            {
-                title: 'Samsung 55 inç 4K Ultra HD Smart TV',
-                categoryId: catElektronik._id,
-                modelId: modelTV._id,
-                brandId: brandSamsung._id,
-                image: 'https://images.unsplash.com/photo-1593305841991-05c297ba4575?q=80&w=400',
-                price: 22400,
-                stock: 12,
-                desc: 'QLED ekran teknolojisi ve dahili uydu alıcılı akıllı televizyon.'
-            },
-            {
-                title: 'JBL Flip 6 Bluetooth Hoparlör',
-                categoryId: catSes._id, // Ses Sistemleri
-                modelId: modelSpeaker._id,
-                brandId: brandJbl._id,
-                image: 'https://images.unsplash.com/photo-1608043152269-423dbba4e7e1?q=80&w=400',
-                price: 4500,
-                stock: 85,
-                desc: 'Suya ve toza dayanıklı IP67 gövdeli taşınabilir kablosuz hoparlör.'
-            },
-            {
-                title: 'JBL Tune 510BT Kablosuz Kulaklık',
-                categoryId: catSes._id, // Ses Sistemleri
-                modelId: modelAirPods._id,
-                brandId: brandJbl._id,
-                image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=400',
-                price: 1850,
-                stock: 140,
-                desc: '40 saate kadar pil ömrü ve saf bas ses kalitesine sahip kulaklık.'
-            },
-            {
-                title: 'Philips Sonicare Şarjlı Diş Fırçası',
-                categoryId: catBakim._id, // Kişisel Bakım
-                modelId: modelToothbrush._id,
-                brandId: brandPhilips._id,
-                image: 'https://images.unsplash.com/photo-1559599141-3815480a827b?q=80&w=400',
-                price: 2950,
-                stock: 95,
-                desc: 'Sonik temizleme teknolojisi ile plakları derinlemesine temizler.'
-            },
-            {
-                title: 'Xiaomi Redmi Buds 5 Kulaklık',
-                categoryId: catSes._id, // Ses Sistemleri
-                modelId: modelAirPods._id,
-                brandId: brandXiaomi._id,
-                image: 'https://images.unsplash.com/photo-1606220588913-b3aacb4d2f46?q=80&w=400',
-                price: 950,
-                stock: 160,
-                desc: 'Aktif gürültü engelleme (ANC) ve ergonomik silikonlu tasarım.'
-            },
-            {
-                title: 'Philips Azur Buharlı Ütü',
-                categoryId: catElektronik._id,
-                modelId: modelIron._id,
-                brandId: brandPhilips._id,
-                image: 'https://images.unsplash.com/photo-1479064555552-3ef4979f8908?q=80&w=400',
-                price: 3800,
-                stock: 50,
-                desc: 'SteamGlide Elite tabanlı, yüksek buhar çıkış gücüne sahip ütü.'
-            }
-        ];
+        // 5. Ürünleri oluştur
+        const catTelefonTablet = await Category.create({
+            name: 'Telefon ve Tablet',
+            image: 'https://images.unsplash.com/photo-1516321318423-f06f85e504b3?q=80&w=600',
+            modelIds: [modelTelefon._id, modelTablet._id, modelPowerbank._id]
+        });
+        const catTemizlik = await Category.create({
+            name: 'Temizlik Cihazlari',
+            image: 'https://images.unsplash.com/photo-1558317374-067fb5f30001?q=80&w=600',
+            modelIds: [modelSupurge._id, modelRobot._id, modelIron._id]
+        });
+        const catKucukEv = await Category.create({
+            name: 'Kucuk Ev Aletleri',
+            image: 'https://images.unsplash.com/photo-1556911220-e15b29be8c8f?q=80&w=600',
+            modelIds: [modelKahveci._id, modelAirfryer._id, modelBlender._id, modelTost._id]
+        });
+        const catAksesuar = await Category.create({
+            name: 'Aksesuar ve Tasinabilir Urunler',
+            image: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?q=80&w=600',
+            modelIds: [modelPowerbank._id, modelAirPods._id, modelSpeaker._id, modelTermos._id]
+        });
 
-        // Ürünleri tek tek oluşturup kaydet
+        const productsData = buildSeedProducts({
+            catMutfak,
+            catElektronik,
+            catBakim,
+            catSes,
+            catTelefonTablet,
+            catTemizlik,
+            catKucukEv,
+            catAksesuar,
+            modelTermos,
+            modelSupurge,
+            modelTelefon,
+            modelKahveci,
+            modelAirwrap,
+            modelRobot,
+            modelTost,
+            modelPowerbank,
+            modelTeapot,
+            modelAirfryer,
+            modelBlender,
+            modelTablet,
+            modelAirPods,
+            modelTV,
+            modelSpeaker,
+            modelToothbrush,
+            modelIron,
+            brandStanley,
+            brandDyson,
+            brandXiaomi,
+            brandKaraca,
+            brandApple,
+            brandSamsung,
+            brandJbl,
+            brandPhilips
+        });
+
         const savedProducts = [];
         for (const prodData of productsData) {
             const product = new Product({
@@ -474,7 +262,10 @@ const seedDatabase = async () => {
             const savedProduct = await product.save();
             savedProducts.push(savedProduct);
         }
-        console.log('24 Ürün başarıyla oluşturuldu.');
+        if (savedProducts.length !== PRODUCT_TARGET_COUNT) {
+            console.warn(`Uyarı: ${PRODUCT_TARGET_COUNT} ürün hedeflendi, ${savedProducts.length} ürün oluşturuldu.`);
+        }
+        console.log(`${savedProducts.length} ürün başarıyla oluşturuldu.`);
 
         // 6. Ürünleri Markalarla ve Toptancıyla Geriye Dönük İlişkilendir
         for (const savedProd of savedProducts) {
@@ -494,7 +285,130 @@ const seedDatabase = async () => {
         });
 
         console.log('Marka ve kullanıcı ilişkileri güncellendi.');
-        console.log('Örnek veriler veritabanına başarıyla yüklendi! 🎉');
+        const customers = await User.find({ wholesaler: false });
+        const orderStatuses = ['Pending', 'Preparing', 'Shipped', 'Delivered'];
+        const debtByCustomerId = new Map(customers.map(customer => [customer._id.toString(), 0]));
+        const salesByProductId = new Map(savedProducts.map(product => [product._id.toString(), 0]));
+
+        for (let index = 0; index < ORDER_COUNT; index += 1) {
+            const customer = pick(customers, index);
+            const productCount = randInt(1, 3);
+            const orderProducts = [];
+            const usedProductIds = new Set();
+
+            while (orderProducts.length < productCount) {
+                const product = pick(savedProducts, randInt(0, savedProducts.length - 1) + index);
+                const productId = product._id.toString();
+
+                if (usedProductIds.has(productId)) {
+                    continue;
+                }
+
+                usedProductIds.add(productId);
+                const count = randInt(product.minOrderQuantity || 1, (product.minOrderQuantity || 1) + 4);
+                const price = product.wholesalers[0].price;
+
+                orderProducts.push({
+                    productId: product._id,
+                    title: product.title,
+                    image: product.image,
+                    price,
+                    count
+                });
+
+                salesByProductId.set(productId, (salesByProductId.get(productId) || 0) + count);
+            }
+
+            const totalAmount = orderProducts.reduce((sum, item) => sum + item.price * item.count, 0);
+            const daysBack = randInt(0, ORDER_HISTORY_DAYS - 1);
+            const status = daysBack > 21
+                ? 'Delivered'
+                : daysBack > 10
+                    ? 'Shipped'
+                    : pick(orderStatuses, index);
+            const paymentMethod = index % 4 === 0 ? 'CreditCard' : 'Cari';
+
+            customer.orders.push({
+                products: orderProducts,
+                totalAmount,
+                paymentMethod,
+                wholesalerId,
+                status,
+                trackingNumber: status === 'Shipped' || status === 'Delivered' ? `TRK${100000 + index}` : '',
+                wholesalerName: 'Vildan Toptan Ticaret',
+                rating: status === 'Delivered' && index % 5 === 0 ? randInt(4, 5) : 0,
+                review: status === 'Delivered' && index % 5 === 0 ? 'Teslimat sorunsuz tamamlandi.' : '',
+                date: daysAgo(daysBack)
+            });
+
+            if (paymentMethod === 'Cari') {
+                const customerKey = customer._id.toString();
+                debtByCustomerId.set(customerKey, (debtByCustomerId.get(customerKey) || 0) + totalAmount);
+            }
+        }
+
+        const paymentNotifications = [];
+        for (let index = 0; index < PAYMENT_NOTIFICATION_COUNT; index += 1) {
+            const customer = pick(customers, index);
+            const customerKey = customer._id.toString();
+            const currentDebt = debtByCustomerId.get(customerKey) || 0;
+            const amount = Math.min(Math.max(randInt(3500, 25000), 1000), Math.max(currentDebt, 1000));
+            const status = index % 5 === 0 ? 'Pending' : index % 7 === 0 ? 'Rejected' : 'Approved';
+
+            paymentNotifications.push({
+                customerId: customer._id,
+                wholesalerId,
+                amount,
+                receiptFile: `dekont-demo-${index + 1}.pdf`,
+                status,
+                createdAt: daysAgo(randInt(0, ORDER_HISTORY_DAYS - 1))
+            });
+
+            if (status === 'Approved') {
+                debtByCustomerId.set(customerKey, Math.max(0, currentDebt - amount));
+            }
+        }
+
+        for (const customer of customers) {
+            const account = customer.wholesalerAccounts.find(
+                item => item.wholesalerId.toString() === wholesalerId.toString()
+            );
+
+            if (account) {
+                account.currentDebt = Math.round(debtByCustomerId.get(customer._id.toString()) || 0);
+            }
+
+            customer.markModified('orders');
+            customer.markModified('wholesalerAccounts');
+            await customer.save();
+        }
+
+        if (paymentNotifications.length) {
+            await PaymentNotification.insertMany(paymentNotifications);
+        }
+
+        for (const product of savedProducts) {
+            const soldCount = salesByProductId.get(product._id.toString()) || 0;
+            const currentStock = product.wholesalers[0].stockQuantity;
+            product.wholesalers[0].stockQuantity = Math.max(0, currentStock - soldCount);
+            product.wholesalers[0].minStockLevel = Math.max(2, product.wholesalers[0].minStockLevel);
+            await product.save();
+        }
+
+        const refreshedProducts = await Product.find({ 'wholesalers.usersID': wholesalerId });
+        await User.findByIdAndUpdate(wholesalerId, {
+            $set: {
+                products: refreshedProducts.map(product => ({
+                    productID: product._id,
+                    price: product.wholesalers[0].price,
+                    stockQuantity: product.wholesalers[0].stockQuantity,
+                    minStockLevel: product.wholesalers[0].minStockLevel
+                }))
+            }
+        });
+
+        console.log(`${CUSTOMER_COUNT} bayi, ${ORDER_COUNT} siparis ve ${PAYMENT_NOTIFICATION_COUNT} odeme bildirimi olusturuldu.`);
+        console.log('Örnek veriler veritabanına başarıyla yüklendi!');
         process.exit(0);
     } catch (err) {
         console.error('Hata oluştu:', err);
