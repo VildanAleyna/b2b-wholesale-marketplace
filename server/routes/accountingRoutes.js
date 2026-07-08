@@ -46,8 +46,8 @@ const createAccountingRoutes = () => {
                     order => order.wholesalerId?.toString() === wholesalerId.toString()
                 );
                 const orderDebt = orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
-                const currentDebt = account?.currentDebt || orderDebt;
-                const creditLimit = account?.creditLimit || 0;
+                const currentDebt = account ? account.currentDebt : orderDebt;
+                const creditLimit = account ? account.creditLimit : 0;
 
                 return {
                     customer: sanitizeUser(customer),
@@ -92,7 +92,7 @@ const createAccountingRoutes = () => {
 
             const paymentRows = approvedPayments.map(pay => ({
                 _id: pay._id,
-                date: pay.createdAt || pay.date,
+                date: pay.createdAt,
                 type: 'Odeme',
                 description: `EFT/Havale Bildirimi (${pay.receiptFile || 'Dekont'})`,
                 amount: pay.amount,

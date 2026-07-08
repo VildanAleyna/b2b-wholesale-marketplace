@@ -81,14 +81,16 @@ const WholesalerDetailScreen = ({ route, navigation }) => {
   };
 
   const handleAddToCart = (item) => {
-    // Sepete eklerken bu toptancıdan eklendiği bilgisini ekle
     const cartItem = {
       ...item,
       selectedWholesalerId: wholesalerId,
-      // Fiyatı toptancının kendi fiyatıyla eşleştir
       price: item.wholesalers?.find(w => w.usersID === wholesalerId)?.price || item.price
     };
-    addToCart(cartItem);
+    const result = addToCart(cartItem);
+    if (!result.ok) {
+      showToast(result.message, 'info');
+      return;
+    }
     showToast(`${item.title} sepete eklendi!`, 'success');
   };
 

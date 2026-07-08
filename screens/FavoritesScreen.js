@@ -118,7 +118,20 @@ const FavoritesScreen = ({ navigation }) => {
   };
 
   const handleAddToCart = (item) => {
-    addToCart(item);
+    const selectedWholesaler = item.wholesalers?.reduce(
+      (lowest, current) => (!lowest || current.price < lowest.price ? current : lowest),
+      null
+    );
+    const cartItem = {
+      ...item,
+      selectedWholesalerId: selectedWholesaler?.usersID?._id || selectedWholesaler?.usersID,
+      price: selectedWholesaler?.price || item.price
+    };
+    const result = addToCart(cartItem);
+    if (!result.ok) {
+      showToast(result.message, 'info');
+      return;
+    }
     showToast(`${item.title} sepete eklendi!`, 'success');
   };
 

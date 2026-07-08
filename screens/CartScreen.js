@@ -87,17 +87,26 @@ const CartScreen = ({ navigation }) => {
   const isShippingFree = (user?.tier === 'Gold' || user?.tier === 'Silver' || totalAmount >= 5000);
   const shippingCost = isShippingFree ? 0 : 250;
   const grandTotal = totalAmount + shippingCost;
+  const cartWholesalerId = (
+    cart[0]?.selectedWholesalerId ||
+    cart[0]?.wholesalers?.[0]?.usersID?._id ||
+    cart[0]?.wholesalers?.[0]?.usersID
+  )?.toString();
+  const activeCariAccount = cariAccounts.find(account => (
+    (account.wholesalerId?._id || account.wholesalerId)?.toString() === cartWholesalerId
+  )) || selectedCariAccount;
 
   // MOQ Limit Kontrolleri
   const isMoqViolated = cart.some(item => item.count < (item.minOrderQuantity || 1));
 
   // Cari Limit Yeterlilik Kontrolü
   const getRemainingCariLimit = () => {
-    if (!selectedCariAccount) return 0;
-    return selectedCariAccount.creditLimit - selectedCariAccount.currentDebt;
+    if (!activeCariAccount) return 0;
+    return activeCariAccount.creditLimit - activeCariAccount.currentDebt;
   };
 
   const remainingCariLimit = getRemainingCariLimit();
+  const isCariAccountMissing = paymentMethod === 'Cari' && !activeCariAccount;
   const isCariLimitInsufficient = paymentMethod === 'Cari' && grandTotal > remainingCariLimit;
 
   // Otomatik Sadakat / İlerleme Durumu Hesaplama
@@ -156,6 +165,11 @@ const CartScreen = ({ navigation }) => {
       return;
     }
 
+    if (isCariAccountMissing) {
+      showToast('Bu toptanci icin aktif cari hesabiniz bulunmuyor.');
+      return;
+    }
+
     if (paymentMethod === 'Cari' && isCariLimitInsufficient) {
       showToast('Cari limitiniz bu siparişi tamamlamak için yetersizdir.');
       return;
@@ -163,11 +177,10 @@ const CartScreen = ({ navigation }) => {
 
     setIsSubmitting(true);
     try {
-      const wholesalerId = selectedCariAccount?.wholesalerId?._id || (cart[0]?.wholesalers?.[0]?.usersID);
+      const wholesalerId = cartWholesalerId || activeCariAccount?.wholesalerId?._id || activeCariAccount?.wholesalerId;
 
       const purchaseDetails = {
         wholesalerId,
-        totalAmount: grandTotal, // Kargo eklenmiş toplam tutarı iletiyoruz
         paymentMethod,
         products: cart.map(item => ({
           _id: item._id,
@@ -398,9 +411,9 @@ const CartScreen = ({ navigation }) => {
                     </View>
 
                     {/* Cari Hesap Detayı */}
-                    {paymentMethod === 'Cari' && selectedCariAccount && (
+                    {paymentMethod === 'Cari' && activeCariAccount && (
                       <View style={styles.cariDetailsBox}>
-                        <Text style={styles.cariWholesalerName}>{selectedCariAccount.wholesalerId?.name}</Text>
+                        <Text style={styles.cariWholesalerName}>{activeCariAccount.wholesalerId?.name}</Text>
                         <View style={styles.cariStatsRow}>
                           <Text style={styles.cariLimitLabel}>Kalan Cari Limit:</Text>
                           <Text style={[styles.cariLimitVal, isCariLimitInsufficient && styles.insufficientLimitText]}>

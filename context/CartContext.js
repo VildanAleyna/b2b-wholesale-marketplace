@@ -1,65 +1,76 @@
 import React, { createContext, useState } from 'react';
 
-// CartContext adlı bir context oluşturuyoruz
 export const CartContext = createContext();
 
-// CartProvider bileşeni, tüm çocuk bileşenlere cart (sepet) verilerini ve işlemleri sağlar
 export const CartProvider = ({ children }) => {
-  const [cart, setCart] = useState([]); // Sepet öğelerini tutmak için state
-  const [orderHistory, setOrderHistory] = useState([]); // Sipariş geçmişi durumunu tutmak için state
+  const [cart, setCart] = useState([]);
+  const [orderHistory, setOrderHistory] = useState([]);
 
-  // Sepete yeni bir ürün ekleme fonksiyonu
+  const getWholesalerId = (item) => (
+    item?.selectedWholesalerId ||
+    item?.wholesalers?.[0]?.usersID?._id ||
+    item?.wholesalers?.[0]?.usersID
+  )?.toString();
+
   const addToCart = (item) => {
+    const cartWholesalerId = getWholesalerId(cart[0]);
+    const itemWholesalerId = getWholesalerId(item);
+
+    if (cartWholesalerId && itemWholesalerId && cartWholesalerId !== itemWholesalerId) {
+      return {
+        ok: false,
+        message: 'Sepette farkli bir toptanciya ait urun var. Once mevcut sepeti tamamlayin veya bosaltin.'
+      };
+    }
+
     setCart((prevCart) => {
-      const existingItem = prevCart.find(cartItem => cartItem._id === item._id); // Sepette mevcut olan ürünü bul
+      const existingItem = prevCart.find(cartItem => cartItem._id === item._id);
       if (existingItem) {
         return prevCart.map(cartItem =>
           cartItem._id === item._id ? { ...cartItem, count: cartItem.count + 1 } : cartItem
-        ); // Eğer ürün sepette varsa, miktarını artır
+        );
       }
-      return [...prevCart, { ...item, count: 1 }]; // Ürün sepette değilse, sepete ekle ve miktarını 1 yap
+      return [...prevCart, { ...item, count: 1 }];
     });
+
+    return { ok: true };
   };
 
-  // Sepetten bir ürünü kaldırma fonksiyonu
   const removeFromCart = (_id) => {
-    setCart((prevCart) => prevCart.filter(item => item._id !== _id)); // Ürünü id'sine göre sepetten çıkar
+    setCart((prevCart) => prevCart.filter(item => item._id !== _id));
   };
 
-  // Ürünün miktarını artırma fonksiyonu
   const increaseCount = (_id) => {
     setCart((prevCart) =>
       prevCart.map(item =>
         item._id === _id ? { ...item, count: item.count + 1 } : item
-      ) // Ürün id'sine göre miktarını artır
+      )
     );
   };
 
-  // Ürünün miktarını azaltma fonksiyonu
   const decreaseCount = (_id) => {
     setCart((prevCart) =>
       prevCart.map(item =>
         item._id === _id ? { ...item, count: item.count - 1 } : item
-      ).filter(item => item.count > 0) // Ürün miktarı 0'a ulaşırsa, ürünü sepetten çıkar
+      ).filter(item => item.count > 0)
     );
   };
 
-  // Sipariş geçmişine yeni sipariş ekleme fonksiyonu
   const addToOrderHistory = (order) => {
-    setOrderHistory((prevOrders) => [...prevOrders, { ...order, date: new Date() }]); // Siparişe tarih ekleyip sipariş geçmişine ekle
+    setOrderHistory((prevOrders) => [...prevOrders, { ...order, date: new Date() }]);
   };
 
   return (
-    <CartContext.Provider value={{ 
-        cart, 
-        addToCart, 
-        removeFromCart, 
-        increaseCount, 
-        decreaseCount, 
-        orderHistory, 
-        addToOrderHistory 
-      }}>
-      {children} 
+    <CartContext.Provider value={{
+      cart,
+      addToCart,
+      removeFromCart,
+      increaseCount,
+      decreaseCount,
+      orderHistory,
+      addToOrderHistory
+    }}>
+      {children}
     </CartContext.Provider>
   );
 };

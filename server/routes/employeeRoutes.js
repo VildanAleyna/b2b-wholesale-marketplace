@@ -70,11 +70,11 @@ const createEmployeeRoutes = ({ hashPassword }) => {
             user.employee = user.employee || [];
             const originalLength = user.employee.length;
 
-            if (employeeName === 'admin') {
+            if (employeeName.toLowerCase() === 'admin') {
                 return res.status(400).json({ message: 'Ana yonetici hesabi silinemez.' });
             }
 
-            user.employee = user.employee.filter(emp => emp.name !== employeeName);
+            user.employee = user.employee.filter(emp => emp.name.toLowerCase() !== employeeName.toLowerCase());
 
             if (user.employee.length === originalLength) {
                 return res.status(404).json({ message: 'Personel bulunamadi.' });
