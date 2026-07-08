@@ -367,9 +367,6 @@ Possible next improvements:
 - Deployment
 - More detailed analytics dashboard
 
-## License
-
-No open-source license has been selected yet. If this repository is published publicly, adding a license such as MIT can make usage terms clear for other developers.
 
 ## Development Focus
 
