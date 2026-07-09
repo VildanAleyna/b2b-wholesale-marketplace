@@ -7,7 +7,7 @@
     "web": "expo start --web",
     "server": "npm --prefix server start",
     "seed": "npm --prefix server run seed",
-    "check:server": "node --check server/index.js"
+    "check:server": "node server/check-syntax.js"
   },
   "dependencies": {
     "@expo/vector-icons": "^14.0.2",

@@ -163,7 +163,9 @@ const WholesalerDetailScreen = ({ route, navigation }) => {
       </Modal>
 
       <ScrollView
-        contentContainerStyle={styles.scrollView}
+        style={styles.scrollArea}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={true}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
         }
@@ -245,8 +247,12 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#F8FAFC',
   },
-  scrollView: {
+  scrollArea: {
+    flex: 1,
+  },
+  scrollContent: {
     padding: 20,
+    paddingBottom: isWeb ? 140 : 110,
     alignItems: 'center',
   },
   profileCard: {

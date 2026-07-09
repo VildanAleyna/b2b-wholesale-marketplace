@@ -1,10 +1,13 @@
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, TouchableWithoutFeedback, Alert, useWindowDimensions } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { registerUser } from '../data/Data';
+import { AuthContext } from '../context/AuthContext';
 import { getModalWidth, isWeb } from '../constants/responsiveLayout';
 
 const RegisterModalComponent = ({ isVisible, onClose, onNavigateToLogin }) => {
   const { width: windowWidth } = useWindowDimensions();
+  const { setUser } = useContext(AuthContext);
   const modalWidth = getModalWidth(windowWidth, 520);
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
@@ -34,13 +37,21 @@ const RegisterModalComponent = ({ isVisible, onClose, onNavigateToLogin }) => {
         ...(wholesaler ? { employee: [] } : { favorites: [] })
       };
 
-      await registerUser(userData);
+      const authResponse = await registerUser(userData);
+      const registeredUser = authResponse.user || authResponse;
+
+      if (authResponse.token) {
+        await AsyncStorage.setItem('authToken', authResponse.token);
+      }
+
+      setUser(registeredUser);
+      await AsyncStorage.setItem('user', JSON.stringify(registeredUser));
       Alert.alert('Başarı', 'Kayıt başarılı!');
 
       onClose();
     } catch (error) {
       console.error('Kayıt sırasında bir hata oluştu:', error);
-      Alert.alert('Hata', 'Kayıt sırasında bir hata oluştu.');
+      Alert.alert('Hata', error.response?.data?.message || 'Kayıt sırasında bir hata oluştu.');
     }
   };
 

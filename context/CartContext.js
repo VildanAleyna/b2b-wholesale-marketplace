@@ -30,7 +30,8 @@ export const CartProvider = ({ children }) => {
           cartItem._id === item._id ? { ...cartItem, count: cartItem.count + 1 } : cartItem
         );
       }
-      return [...prevCart, { ...item, count: 1 }];
+      const initialCount = Math.max(1, Number(item.minOrderQuantity) || 1);
+      return [...prevCart, { ...item, count: initialCount }];
     });
 
     return { ok: true };

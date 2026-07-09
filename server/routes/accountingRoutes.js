@@ -46,7 +46,10 @@ const createAccountingRoutes = () => {
                     order => order.wholesalerId?.toString() === wholesalerId.toString()
                 );
                 const orderDebt = orders.reduce((sum, order) => sum + (order.totalAmount || 0), 0);
-                const currentDebt = account ? account.currentDebt : orderDebt;
+                const cariOrderDebt = orders
+                    .filter(order => order.paymentMethod === 'Cari')
+                    .reduce((sum, order) => sum + (order.totalAmount || 0), 0);
+                const currentDebt = account ? account.currentDebt : cariOrderDebt;
                 const creditLimit = account ? account.creditLimit : 0;
 
                 return {

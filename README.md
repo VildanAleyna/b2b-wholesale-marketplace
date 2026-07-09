@@ -304,6 +304,9 @@ Backend environment example:
 PORT=3000
 MONGO_URI=mongodb://localhost:27017/Toptanci
 CORS_ORIGIN=*
+JWT_SECRET=change-this-secret-in-production
+JWT_EXPIRES_IN=7d
+BCRYPT_SALT_ROUNDS=10
 ```
 
 For physical device testing with Expo Go, set the frontend API URL to the local IP address of the development machine:

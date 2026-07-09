@@ -6,7 +6,7 @@
     "start": "node index.js",
     "dev": "node --watch index.js",
     "seed": "node seed.js",
-    "check": "node --check index.js"
+    "check": "node check-syntax.js"
   },
   "keywords": [],
   "author": "",

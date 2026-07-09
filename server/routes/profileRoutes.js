@@ -155,12 +155,23 @@ const createProfileRoutes = ({ hashPassword }) => {
                 return res.status(404).json({ message: 'Kullanici bulunamadi.' });
             }
 
-            user.products.push({
-                productID: new mongoose.Types.ObjectId(productId),
-                price: numericPrice,
-                stockQuantity: numericStock,
-                minStockLevel: numericMinStock
-            });
+            const productObjectId = new mongoose.Types.ObjectId(productId);
+            const existingProduct = (user.products || []).find(
+                item => item.productID?.toString() === productObjectId.toString()
+            );
+
+            if (existingProduct) {
+                existingProduct.price = numericPrice;
+                existingProduct.stockQuantity = numericStock;
+                existingProduct.minStockLevel = numericMinStock;
+            } else {
+                user.products.push({
+                    productID: productObjectId,
+                    price: numericPrice,
+                    stockQuantity: numericStock,
+                    minStockLevel: numericMinStock
+                });
+            }
 
             const updatedUser = await user.save();
             res.json(sanitizeUser(updatedUser));

@@ -57,10 +57,13 @@ const CartScreen = ({ navigation }) => {
     loadCariAccounts();
   }, [user]);
 
-  // Ürünün toptancı fiyatını bul (en düşük)
   const getProductPrice = (item) => {
-    if (!item.wholesalers || item.wholesalers.length === 0) return item.price || 0;
-    return Math.min(...item.wholesalers.map(w => w.price));
+    const selectedWholesalerId = item.selectedWholesalerId?.toString();
+    const selectedWholesaler = item.wholesalers?.find(w => (
+      (w.usersID?._id || w.usersID)?.toString() === selectedWholesalerId
+    ));
+
+    return selectedWholesaler?.price || item.price || 0;
   };
 
   // Kullanıcı seviyesine göre indirim çarpanı
