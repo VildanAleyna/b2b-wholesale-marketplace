@@ -28,11 +28,11 @@ const CariAccountScreen = ({ navigation }) => {
   const [statementRows, setStatementRows] = useState([]);
   const [isStatementLoading, setStatementLoading] = useState(false);
 
-  const handleOpenStatementModal = async () => {
+  const handleOpenStatementModal = async (account) => {
     setStatementModalVisible(true);
     setStatementLoading(true);
     try {
-      const data = await fetchUserStatement(user._id);
+      const data = await fetchUserStatement(user._id, account?.wholesalerId?._id);
       setStatementRows(data);
     } catch (error) {
       console.error('Ekstre döküm hatası:', error);
@@ -243,7 +243,7 @@ const CariAccountScreen = ({ navigation }) => {
                   
                   <TouchableOpacity 
                     style={styles.ledgerButton}
-                    onPress={handleOpenStatementModal}
+                    onPress={() => handleOpenStatementModal(item)}
                   >
                     <Ionicons name="document-text-outline" size={16} color="#1E3A8A" style={{ marginRight: 6 }} />
                     <Text style={styles.ledgerButtonText}>Ekstre İndir</Text>

@@ -73,25 +73,38 @@ const createAccountingRoutes = () => {
 
     router.get('/users/:userId/statement', authorizeSelfParam('userId'), async (req, res) => {
         try {
+            const { wholesalerId } = req.query;
+            if (wholesalerId && !mongoose.Types.ObjectId.isValid(wholesalerId)) {
+                return res.status(400).json({ message: 'Gecersiz toptanci ID.' });
+            }
+
             const user = await User.findById(req.params.userId);
             if (!user) {
                 return res.status(404).json({ message: 'Kullanici bulunamadi.' });
             }
 
-            const orderRows = (user.orders || []).map(order => ({
-                _id: order._id,
-                date: order.date,
-                type: 'Siparis',
-                description: order.paymentMethod === 'Cari' ? 'Cari siparis alimi' : 'Kredi karti ile siparis',
-                amount: order.totalAmount,
-                effect: 'debit',
-                reference: order._id
-            }));
+            const orderRows = (user.orders || [])
+                .filter(order => !wholesalerId || order.wholesalerId?.toString() === wholesalerId)
+                .map(order => ({
+                    _id: order._id,
+                    date: order.date,
+                    type: 'Siparis',
+                    description: order.paymentMethod === 'Cari' ? 'Cari siparis alimi' : 'Kredi karti ile siparis',
+                    amount: order.totalAmount,
+                    effect: 'debit',
+                    reference: order._id
+                }));
 
-            const approvedPayments = await PaymentNotification.find({
+            const paymentFilter = {
                 customerId: req.params.userId,
                 status: 'Approved'
-            });
+            };
+
+            if (wholesalerId) {
+                paymentFilter.wholesalerId = wholesalerId;
+            }
+
+            const approvedPayments = await PaymentNotification.find(paymentFilter);
 
             const paymentRows = approvedPayments.map(pay => ({
                 _id: pay._id,

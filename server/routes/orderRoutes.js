@@ -2,7 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const { User, Product } = require('../models');
 const { sanitizeUser } = require('../utils/serializers');
-const { authenticateToken, authorizeSelfParam, authorizeWholesalerParam, requireWholesalerRole } = require('../utils/security');
+const { authenticateToken, authorizeSelfParam, authorizeWholesalerParam, hasWholesalerRole, requireWholesalerRole } = require('../utils/security');
 
 const createOrderRoutes = () => {
     const router = express.Router();
@@ -224,7 +224,7 @@ const createOrderRoutes = () => {
         }
     });
 
-    router.put('/customers/:customerId/orders/:orderId/status', requireWholesalerRole(['warehouse']), async (req, res) => {
+    router.put('/customers/:customerId/orders/:orderId/status', async (req, res) => {
         const { customerId, orderId } = req.params;
         const { status, trackingNumber } = req.body;
 
@@ -243,8 +243,25 @@ const createOrderRoutes = () => {
                 return res.status(404).json({ message: 'Siparis bulunamadi.' });
             }
 
-            if (order.wholesalerId?.toString() !== req.auth.userId) {
-                return res.status(403).json({ message: 'You can only update orders assigned to your wholesaler account.' });
+            const isCustomerConfirmingDelivery = (
+                req.auth.accountType === 'customer' &&
+                req.auth.userId === customerId &&
+                status === 'Delivered' &&
+                order.status === 'Shipped'
+            );
+
+            if (isCustomerConfirmingDelivery) {
+                if (trackingNumber !== undefined && trackingNumber !== order.trackingNumber) {
+                    return res.status(400).json({ message: 'Teslim alma onayinda kargo takip numarasi degistirilemez.' });
+                }
+            } else {
+                if (!hasWholesalerRole(req.auth, ['warehouse'])) {
+                    return res.status(403).json({ message: 'This employee role is not allowed for this operation.' });
+                }
+
+                if (order.wholesalerId?.toString() !== req.auth.userId) {
+                    return res.status(403).json({ message: 'You can only update orders assigned to your wholesaler account.' });
+                }
             }
 
             order.status = status;

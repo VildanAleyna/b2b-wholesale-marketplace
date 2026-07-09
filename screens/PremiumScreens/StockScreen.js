@@ -69,6 +69,7 @@ const StockScreen = () => {
     price: '',
     stockQuantity: '',
     minStockLevel: '',
+    minOrderQuantity: '1',
     description: '',
   });
 
@@ -216,12 +217,13 @@ const StockScreen = () => {
       price: '',
       stockQuantity: '',
       minStockLevel: '',
+      minOrderQuantity: '1',
       description: '',
     });
   };
 
   const handleAddProduct = async () => {
-    const requiredFields = ['title', 'image', 'categoryId', 'modelId', 'brandId', 'price', 'stockQuantity', 'minStockLevel'];
+    const requiredFields = ['title', 'image', 'categoryId', 'modelId', 'brandId', 'price', 'stockQuantity', 'minStockLevel', 'minOrderQuantity'];
     const hasMissingField = requiredFields.some(field => !String(newProduct[field] || '').trim());
 
     if (hasMissingField) {
@@ -235,6 +237,7 @@ const StockScreen = () => {
       modelId: newProduct.modelId,
       brandId: newProduct.brandId,
       image: newProduct.image.trim(),
+      minOrderQuantity: Number(newProduct.minOrderQuantity || 1),
       wholesalers: [{
         usersID: user._id,
         name: user.wholesalerName || user.companyName || user.name,
@@ -530,6 +533,17 @@ const StockScreen = () => {
                     keyboardType="numeric"
                     style={styles.formInput}
                     placeholder="0"
+                    placeholderTextColor="#94A3B8"
+                  />
+                </View>
+                <View style={styles.formColumn}>
+                  <Text style={styles.formLabel}>Minimum Sipariş</Text>
+                  <TextInput
+                    value={newProduct.minOrderQuantity}
+                    onChangeText={(value) => handleNewProductChange('minOrderQuantity', value.replace(/[^0-9]/g, ''))}
+                    keyboardType="numeric"
+                    style={styles.formInput}
+                    placeholder="1"
                     placeholderTextColor="#94A3B8"
                   />
                 </View>

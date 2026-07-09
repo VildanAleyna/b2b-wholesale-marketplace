@@ -88,24 +88,30 @@ const roleAliases = {
     admin: ['admin']
 };
 
-const requireWholesalerRole = (allowedRoles) => (req, res, next) => {
-    if (req.auth?.accountType === 'wholesalerAdmin') {
-        return next();
+const hasWholesalerRole = (auth, allowedRoles) => {
+    if (auth?.accountType === 'wholesalerAdmin') {
+        return true;
     }
 
-    if (req.auth?.accountType !== 'employee') {
-        return res.status(403).json({ message: 'Wholesaler employee access is required.' });
+    if (auth?.accountType !== 'employee') {
+        return false;
     }
 
-    const normalizedEmployeeRole = normalizeRole(req.auth?.employeeRole);
+    const normalizedEmployeeRole = normalizeRole(auth?.employeeRole);
     if (normalizedEmployeeRole === 'admin') {
-        return next();
+        return true;
     }
 
     const allowedAliases = allowedRoles.flatMap(role => roleAliases[role] || [role]);
-    const isAllowed = allowedAliases.map(normalizeRole).includes(normalizedEmployeeRole);
+    return allowedAliases.map(normalizeRole).includes(normalizedEmployeeRole);
+};
 
-    if (!isAllowed) {
+const requireWholesalerRole = (allowedRoles) => (req, res, next) => {
+    if (!['wholesalerAdmin', 'employee'].includes(req.auth?.accountType)) {
+        return res.status(403).json({ message: 'Wholesaler employee access is required.' });
+    }
+
+    if (!hasWholesalerRole(req.auth, allowedRoles)) {
         return res.status(403).json({ message: 'This employee role is not allowed for this operation.' });
     }
 
@@ -129,6 +135,7 @@ module.exports = {
     authorizeSelfParam,
     authorizeCustomerParam,
     authorizeWholesalerParam,
+    hasWholesalerRole,
     requireWholesalerAdmin,
     requireWholesalerRole
 };

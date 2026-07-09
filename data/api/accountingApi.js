@@ -20,9 +20,11 @@ export const fetchWholesalerAccounts = async (wholesalerId) => {
   }
 };
 
-export const fetchUserStatement = async (userId) => {
+export const fetchUserStatement = async (userId, wholesalerId) => {
   try {
-    const response = await apiClient.get(`/users/${userId}/statement`);
+    const response = await apiClient.get(`/users/${userId}/statement`, {
+      params: wholesalerId ? { wholesalerId } : {},
+    });
     return response.data;
   } catch (error) {
     console.error('Cari ekstre alinamadi:', error);
