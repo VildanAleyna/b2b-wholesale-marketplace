@@ -17,8 +17,43 @@ export const apiClient = axios.create({
   timeout: 15000,
 });
 
+let cachedAuthToken;
+let tokenLoadPromise;
+
+export const setAuthToken = async (token) => {
+  cachedAuthToken = token || null;
+
+  if (token) {
+    await AsyncStorage.setItem('authToken', token);
+    return;
+  }
+
+  await AsyncStorage.removeItem('authToken');
+};
+
+export const clearAuthSession = async () => {
+  cachedAuthToken = null;
+  await AsyncStorage.multiRemove(['authToken', 'user']);
+};
+
+const getAuthToken = async () => {
+  if (cachedAuthToken !== undefined) {
+    return cachedAuthToken;
+  }
+
+  if (!tokenLoadPromise) {
+    tokenLoadPromise = AsyncStorage.getItem('authToken').then((token) => {
+      cachedAuthToken = token || null;
+      tokenLoadPromise = null;
+      return cachedAuthToken;
+    });
+  }
+
+  return tokenLoadPromise;
+};
+
 apiClient.interceptors.request.use(async (config) => {
-  const token = await AsyncStorage.getItem('authToken');
+  const token = await getAuthToken();
 
   if (token) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -26,3 +61,14 @@ apiClient.interceptors.request.use(async (config) => {
 
   return config;
 });
+
+apiClient.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (error.response?.status === 401) {
+      await clearAuthSession();
+    }
+
+    return Promise.reject(error);
+  }
+);

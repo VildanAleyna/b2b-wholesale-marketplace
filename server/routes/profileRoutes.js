@@ -53,25 +53,6 @@ const createProfileRoutes = ({ hashPassword }) => {
 
     router.get('/users/:id', authorizeSelfParam('id'), async (req, res) => {
         try {
-            const product = await Product.findOneAndUpdate(
-                {
-                    _id: productId,
-                    'wholesalers.usersID': req.params.id
-                },
-                {
-                    $set: {
-                        'wholesalers.$.price': numericPrice,
-                        'wholesalers.$.stockQuantity': numericStock,
-                        'wholesalers.$.minStockLevel': numericMinStock
-                    }
-                },
-                { new: true, runValidators: true }
-            );
-
-            if (!product) {
-                return res.status(404).json({ message: 'Bu toptanciya ait urun bulunamadi.' });
-            }
-
             const user = await User.findById(req.params.id);
             if (!user) {
                 return res.status(404).json({ message: 'Kullanici bulunamadi.' });
@@ -182,6 +163,25 @@ const createProfileRoutes = ({ hashPassword }) => {
             }
 
             const productObjectId = new mongoose.Types.ObjectId(productId);
+            const product = await Product.findOneAndUpdate(
+                {
+                    _id: productObjectId,
+                    'wholesalers.usersID': req.params.id
+                },
+                {
+                    $set: {
+                        'wholesalers.$.price': numericPrice,
+                        'wholesalers.$.stockQuantity': numericStock,
+                        'wholesalers.$.minStockLevel': numericMinStock
+                    }
+                },
+                { new: true, runValidators: true }
+            );
+
+            if (!product) {
+                return res.status(404).json({ message: 'Bu toptanciya ait urun bulunamadi.' });
+            }
+
             const existingProduct = (user.products || []).find(
                 item => item.productID?.toString() === productObjectId.toString()
             );

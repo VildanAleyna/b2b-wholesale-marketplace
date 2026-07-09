@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, TouchableOpacity, Modal, TextInput, TouchableWi
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { registerUser } from '../data/Data';
 import { AuthContext } from '../context/AuthContext';
+import { setAuthToken } from '../data/apiClient';
 import { getModalWidth, isWeb } from '../constants/responsiveLayout';
 
 const RegisterModalComponent = ({ isVisible, onClose, onNavigateToLogin }) => {
@@ -41,7 +42,7 @@ const RegisterModalComponent = ({ isVisible, onClose, onNavigateToLogin }) => {
       const registeredUser = authResponse.user || authResponse;
 
       if (authResponse.token) {
-        await AsyncStorage.setItem('authToken', authResponse.token);
+        await setAuthToken(authResponse.token);
       }
 
       setUser(registeredUser);

@@ -1,9 +1,9 @@
 import { apiClient } from '../apiClient';
 
-export const fetchProducts = async () => {
+export const fetchProducts = async (params) => {
   try {
-    const response = await apiClient.get('/products');
-    return response.data;
+    const response = await apiClient.get('/products', { params });
+    return Array.isArray(response.data) ? response.data : response.data.items || [];
   } catch (error) {
     console.error('Error fetching products:', error);
     return [];

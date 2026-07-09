@@ -28,6 +28,7 @@ const width = Dimensions.get('window').width;
 const isWeb = Platform.OS === 'web';
 const carouselWidth = isWeb ? Math.min(width - 40, 1000) : width - 20;
 const carouselHeight = isWeb ? 300 : width / 2 + 10;
+const sameId = (left, right) => (left?._id || left)?.toString() === (right?._id || right)?.toString();
 
 const imageUrls = [
   'https://images.unsplash.com/photo-1555421689-491a97ff2040?q=80&w=1000', // Teknoloji & Toptan Kampanya afişi
@@ -102,6 +103,7 @@ const HomeScreen = ({ navigation }) => {
   const [products, setProducts] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [filteredProducts, setFilteredProducts] = useState([]);
   const [currentPage, setCurrentPage] = useState(0);
   const [toast, setToast] = useState({ visible: false, message: '', type: 'info' });
@@ -125,17 +127,26 @@ const HomeScreen = ({ navigation }) => {
   }, []);
 
   useEffect(() => {
-    if (searchQuery === '') {
+    const timeoutId = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery.trim());
+    }, 250);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchQuery]);
+
+  useEffect(() => {
+    if (debouncedSearchQuery === '') {
       setFilteredProducts(products);
     } else {
+      const normalizedQuery = debouncedSearchQuery.toLowerCase();
       setFilteredProducts(
         products.filter(product =>
-          product.title.toLowerCase().includes(searchQuery.toLowerCase())
+          product.title.toLowerCase().includes(normalizedQuery)
         )
       );
     }
     setCurrentPage(0);
-  }, [searchQuery, products]);
+  }, [debouncedSearchQuery, products]);
 
   const handleToggleFavorite = async (item) => {
     if (!user) {
@@ -144,7 +155,7 @@ const HomeScreen = ({ navigation }) => {
     }
 
     try {
-      if (user.favorites.includes(item._id)) {
+      if (user.favorites.some(id => sameId(id, item._id))) {
         await removeFavorite(item._id, user, setUser); // Ürünü favorilerden çıkar
       } else {
         await addFavorite(item._id, user, setUser); // Ürünü favorilere ekle
@@ -276,7 +287,7 @@ const HomeScreen = ({ navigation }) => {
                 wholesalers={item.wholesalers}
                 onAddToCart={() => handleAddToCart(item)}
                 onToggleFavorite={() => handleToggleFavorite(item)}
-                isFavorite={user?.favorites?.includes(item._id)} // Ürünün favori olup olmadığını kontrol et
+                isFavorite={user?.favorites?.some(id => sameId(id, item._id))}
                 user={user}
                 onWholesalerPress={() => {
                   const mainWholesaler = item.wholesalers?.[0];

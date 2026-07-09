@@ -1,9 +1,12 @@
 import { apiClient } from '../apiClient';
 
+const sameId = (left, right) => (left?._id || left)?.toString() === (right?._id || right)?.toString();
+
 export const removeFavorite = async (productId, user, setUser) => {
   if (!user) return;
 
-  const updatedFavorites = user.favorites.filter((id) => id !== productId);
+  const previousFavorites = user.favorites || [];
+  const updatedFavorites = previousFavorites.filter((id) => !sameId(id, productId));
   setUser((prevState) => ({ ...prevState, favorites: updatedFavorites }));
 
   try {
@@ -14,13 +17,18 @@ export const removeFavorite = async (productId, user, setUser) => {
     }
   } catch (error) {
     console.error('Favori silinemedi:', error);
+    setUser((prevState) => ({ ...prevState, favorites: previousFavorites }));
+    throw error;
   }
 };
 
 export const addFavorite = async (productId, user, setUser) => {
   if (!user) return;
 
-  const updatedFavorites = [...user.favorites, productId];
+  const previousFavorites = user.favorites || [];
+  const updatedFavorites = previousFavorites.some(id => sameId(id, productId))
+    ? previousFavorites
+    : [...previousFavorites, productId];
   setUser((prevState) => ({ ...prevState, favorites: updatedFavorites }));
 
   try {
@@ -31,6 +39,8 @@ export const addFavorite = async (productId, user, setUser) => {
     }
   } catch (error) {
     console.error('Favori kaydedilemedi:', error);
+    setUser((prevState) => ({ ...prevState, favorites: previousFavorites }));
+    throw error;
   }
 };
 

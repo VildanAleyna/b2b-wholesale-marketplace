@@ -19,6 +19,7 @@ import { fetchWholesalerDetails, fetchUserProducts, addFavorite, removeFavorite 
 
 const isWeb = Platform.OS === 'web';
 const width = Dimensions.get('window').width;
+const sameId = (left, right) => (left?._id || left)?.toString() === (right?._id || right)?.toString();
 
 const ProductItem = ({ price, title, image, onAddToCart, onToggleFavorite, isFavorite, stockQuantity }) => (
   <View style={styles.item}>
@@ -84,7 +85,7 @@ const WholesalerDetailScreen = ({ route, navigation }) => {
     const cartItem = {
       ...item,
       selectedWholesalerId: wholesalerId,
-      price: item.wholesalers?.find(w => w.usersID === wholesalerId)?.price || item.price
+      price: item.wholesalers?.find(w => sameId(w.usersID, wholesalerId))?.price || item.price
     };
     const result = addToCart(cartItem);
     if (!result.ok) {
@@ -101,7 +102,7 @@ const WholesalerDetailScreen = ({ route, navigation }) => {
     }
 
     try {
-      if (user.favorites.includes(item._id)) {
+      if (user.favorites.some(id => sameId(id, item._id))) {
         await removeFavorite(item._id, user, setUser);
         showToast(`${item.title} favorilerden çıkarıldı.`, 'info');
       } else {
@@ -217,7 +218,7 @@ const WholesalerDetailScreen = ({ route, navigation }) => {
           <View style={styles.grid}>
             {products.map((item) => {
               // Toptancının kendi fiyat ve stok bilgilerini bul
-              const selfInfo = item.wholesalers?.find(w => w.usersID === wholesalerId) || {};
+              const selfInfo = item.wholesalers?.find(w => sameId(w.usersID, wholesalerId)) || {};
               const price = selfInfo.price || item.price;
               const stock = selfInfo.stockQuantity || 0;
 
@@ -230,7 +231,7 @@ const WholesalerDetailScreen = ({ route, navigation }) => {
                     stockQuantity={stock}
                     onAddToCart={() => handleAddToCart(item)}
                     onToggleFavorite={() => handleToggleFavorite(item)}
-                    isFavorite={user?.favorites?.includes(item._id)}
+                    isFavorite={user?.favorites?.some(id => sameId(id, item._id))}
                   />
                 </View>
               );

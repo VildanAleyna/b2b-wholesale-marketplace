@@ -7,6 +7,13 @@ const { authenticateToken, authorizeSelfParam, authorizeWholesalerParam, hasWhol
 const createOrderRoutes = () => {
     const router = express.Router();
     router.use(authenticateToken);
+    const statusTransitions = {
+        Pending: ['Preparing'],
+        Preparing: ['Shipped'],
+        Shipped: ['Delivered'],
+        Delivered: []
+    };
+
     const authorizeOrderStatusActor = (req, res, next) => {
         const isOwnCustomerOrder = req.auth?.accountType === 'customer' && req.auth?.userId === req.params.customerId;
         if (isOwnCustomerOrder || hasWholesalerRole(req.auth, ['warehouse'])) {
@@ -299,6 +306,11 @@ const createOrderRoutes = () => {
                 if (order.wholesalerId?.toString() !== req.auth.userId) {
                     return res.status(403).json({ message: 'You can only update orders assigned to your wholesaler account.' });
                 }
+            }
+
+            const currentStatus = order.status || 'Pending';
+            if (currentStatus !== status && !statusTransitions[currentStatus]?.includes(status)) {
+                return res.status(400).json({ message: `Siparis durumu ${currentStatus} konumundan ${status} konumuna alinamaz.` });
             }
 
             order.status = status;

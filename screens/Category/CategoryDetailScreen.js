@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 const isWeb = Platform.OS === 'web';
 const width = Dimensions.get('window').width;
+const sameId = (left, right) => (left?._id || left)?.toString() === (right?._id || right)?.toString();
 
 const Item = ({ price, title, image, onAddToCart, onToggleFavorite, isFavorite, wholesalers, onWholesalerPress, user }) => {
   const getLowestPrice = (wholesalers) => {
@@ -132,7 +133,7 @@ const CategoryDetailScreen = ({ route, navigation }) => {
     }
 
     try {
-      if (user.favorites.includes(item._id)) {
+      if (user.favorites.some(id => sameId(id, item._id))) {
         await removeFavorite(item._id, user, setUser);
         showToast(`${item.title} favorilerden çıkarıldı.`, 'info');
       } else {
@@ -211,7 +212,7 @@ const CategoryDetailScreen = ({ route, navigation }) => {
                   wholesalers={item.wholesalers}
                   onAddToCart={() => handleAddToCart(item)}
                   onToggleFavorite={() => handleToggleFavorite(item)}
-                  isFavorite={user?.favorites?.includes(item._id)}
+                  isFavorite={user?.favorites?.some(id => sameId(id, item._id))}
                   user={user}
                   onWholesalerPress={() => {
                     const mainWholesaler = item.wholesalers?.[0];

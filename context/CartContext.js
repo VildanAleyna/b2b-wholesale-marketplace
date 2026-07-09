@@ -1,10 +1,22 @@
-import React, { createContext, useState } from 'react';
+import React, { createContext, useContext, useEffect, useRef, useState } from 'react';
+import { AuthContext } from './AuthContext';
 
 export const CartContext = createContext();
 
 export const CartProvider = ({ children }) => {
+  const { user } = useContext(AuthContext);
   const [cart, setCart] = useState([]);
-  const [orderHistory, setOrderHistory] = useState([]);
+  const previousUserId = useRef(user?._id || null);
+
+  useEffect(() => {
+    const currentUserId = user?._id || null;
+
+    if (previousUserId.current && !currentUserId) {
+      setCart([]);
+    }
+
+    previousUserId.current = currentUserId;
+  }, [user?._id]);
 
   const getWholesalerId = (item) => (
     item?.selectedWholesalerId ||
@@ -41,6 +53,10 @@ export const CartProvider = ({ children }) => {
     setCart((prevCart) => prevCart.filter(item => item._id !== _id));
   };
 
+  const clearCart = () => {
+    setCart([]);
+  };
+
   const increaseCount = (_id) => {
     setCart((prevCart) =>
       prevCart.map(item =>
@@ -65,10 +81,6 @@ export const CartProvider = ({ children }) => {
     );
   };
 
-  const addToOrderHistory = (order) => {
-    setOrderHistory((prevOrders) => [...prevOrders, { ...order, date: new Date() }]);
-  };
-
   return (
     <CartContext.Provider value={{
       cart,
@@ -76,8 +88,7 @@ export const CartProvider = ({ children }) => {
       removeFromCart,
       increaseCount,
       decreaseCount,
-      orderHistory,
-      addToOrderHistory
+      clearCart
     }}>
       {children}
     </CartContext.Provider>

@@ -1,6 +1,7 @@
 import React, { createContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { loginUser } from '../data/Data';
+import { clearAuthSession, setAuthToken } from '../data/apiClient';
 
 const AuthContext = createContext();
 
@@ -17,6 +18,7 @@ const AuthProvider = ({ children }) => {
       const savedToken = await AsyncStorage.getItem('authToken');
 
       if (savedUser && savedToken) {
+        await setAuthToken(savedToken);
         setUser(JSON.parse(savedUser));
       } else if (savedUser && !savedToken) {
         await AsyncStorage.removeItem('user');
@@ -31,9 +33,7 @@ const AuthProvider = ({ children }) => {
       const authenticatedUser = authResponse.user || authResponse;
       const token = authResponse.token;
 
-      if (token) {
-        await AsyncStorage.setItem('authToken', token);
-      }
+      await setAuthToken(token);
 
       setUser(authenticatedUser);
       await AsyncStorage.setItem('user', JSON.stringify(authenticatedUser));
@@ -49,8 +49,7 @@ const AuthProvider = ({ children }) => {
 
   const logout = async () => {
     try {
-      await AsyncStorage.removeItem('user');
-      await AsyncStorage.removeItem('authToken');
+      await clearAuthSession();
       setUser(null);
     } catch (error) {
       console.error('Çıkış sırasında bir hata oluştu:', error);

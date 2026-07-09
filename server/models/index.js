@@ -19,7 +19,7 @@ const ProductSchema = new mongoose.Schema({
 
 const UserSchema = new mongoose.Schema({
     name: String,
-    email: String,
+    email: { type: String, unique: true, sparse: true, trim: true, lowercase: true },
     password: String,
     companyName: { type: String, default: "" },
     authorizedPerson: { type: String, default: "" },
@@ -30,6 +30,8 @@ const UserSchema = new mongoose.Schema({
     phone: { type: String, default: "" },
     notificationEmail: { type: Boolean, default: true },
     notificationLimitWarning: { type: Boolean, default: true },
+    rating: { type: Number, default: 0 },
+    ratingCount: { type: Number, default: 0 },
     wholesalerAccounts: {
         type: [{
             wholesalerId: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },

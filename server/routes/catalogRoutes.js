@@ -130,6 +130,26 @@ const createCatalogRoutes = () => {
 
     router.get('/products', async (req, res) => {
         try {
+            const page = Number(req.query.page);
+            const limit = Number(req.query.limit);
+
+            if (Number.isInteger(page) && page > 0 && Number.isInteger(limit) && limit > 0) {
+                const safeLimit = Math.min(limit, 100);
+                const skip = (page - 1) * safeLimit;
+                const [products, total] = await Promise.all([
+                    Product.find().skip(skip).limit(safeLimit),
+                    Product.countDocuments()
+                ]);
+
+                return res.json({
+                    items: products,
+                    total,
+                    page,
+                    limit: safeLimit,
+                    totalPages: Math.ceil(total / safeLimit)
+                });
+            }
+
             const products = await Product.find();
             res.json(products);
         } catch (error) {

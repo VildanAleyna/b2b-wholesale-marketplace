@@ -19,6 +19,7 @@ import { fetchFavoriteProducts, addFavorite, removeFavorite } from '../data/Data
 
 const isWeb = Platform.OS === 'web';
 const width = Dimensions.get('window').width;
+const sameId = (left, right) => (left?._id || left)?.toString() === (right?._id || right)?.toString();
 
 const Item = ({ price, title, image, onAddToCart, onToggleFavorite, isFavorite, wholesalers, onWholesalerPress, user }) => {
   const getLowestPrice = (wholesalers) => {
@@ -139,7 +140,7 @@ const FavoritesScreen = ({ navigation }) => {
     if (!user) return;
 
     try {
-      if (user.favorites.includes(item._id)) {
+      if (user.favorites.some(id => sameId(id, item._id))) {
         await removeFavorite(item._id, user, setUser); // Ürünü favorilerden çıkar
         showToast(`${item.title} favorilerden çıkarıldı.`, 'info');
       } else {
@@ -204,7 +205,7 @@ const FavoritesScreen = ({ navigation }) => {
                   wholesalers={item.wholesalers}
                   onAddToCart={() => handleAddToCart(item)}
                   onToggleFavorite={() => handleToggleFavorite(item)}
-                  isFavorite={user?.favorites?.includes(item._id)}
+                  isFavorite={user?.favorites?.some(id => sameId(id, item._id))}
                   user={user}
                   onWholesalerPress={() => {
                     const mainWholesaler = item.wholesalers?.[0];
@@ -232,6 +233,7 @@ const styles = StyleSheet.create({
   },
   scrollView: {
     padding: 20,
+    paddingBottom: isWeb ? 140 : 110,
     alignItems: 'center',
   },
   grid: {

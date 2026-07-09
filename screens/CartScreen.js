@@ -22,7 +22,7 @@ import { getResponsiveContentWidth, isWeb } from '../constants/responsiveLayout'
 import AppToast from '../components/ui/AppToast';
 
 const CartScreen = ({ navigation }) => {
-  const { cart, removeFromCart, increaseCount, decreaseCount, addToOrderHistory } = useContext(CartContext);
+  const { cart, removeFromCart, increaseCount, decreaseCount } = useContext(CartContext);
   const { user, setUser } = useContext(AuthContext);
   const { width: windowWidth } = useWindowDimensions();
   const webContentWidth = getResponsiveContentWidth(windowWidth, 900);
@@ -227,6 +227,7 @@ const CartScreen = ({ navigation }) => {
     const itemTotal = discountedPrice * item.count;
     const moq = item.minOrderQuantity || 1;
     const isUnderMoq = item.count < moq;
+    const hasItemDiscount = discountedPrice < basePrice;
 
     return (
       <View style={[styles.itemCard, isWeb && { width: webContentWidth }]}>
@@ -236,7 +237,7 @@ const CartScreen = ({ navigation }) => {
           
           {/* Fiyat Satırı */}
           <View style={styles.priceRow}>
-            {totalDiscount > 0 ? (
+            {hasItemDiscount ? (
               <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                 <Text style={styles.oldPrice}>{basePrice.toLocaleString('tr-TR')} ₺</Text>
                 <Text style={styles.newPrice}>{discountedPrice.toLocaleString('tr-TR')} ₺</Text>
@@ -521,7 +522,7 @@ const styles = StyleSheet.create({
   oldPrice: {
     fontSize: 12,
     color: '#94A3B8',
-    textDecorationLine: 'underlineLine',
+    textDecorationLine: 'line-through',
     marginRight: 6,
   },
   newPrice: {
