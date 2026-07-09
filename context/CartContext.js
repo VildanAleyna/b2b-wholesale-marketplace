@@ -51,9 +51,17 @@ export const CartProvider = ({ children }) => {
 
   const decreaseCount = (_id) => {
     setCart((prevCart) =>
-      prevCart.map(item =>
-        item._id === _id ? { ...item, count: item.count - 1 } : item
-      ).filter(item => item.count > 0)
+      prevCart.map(item => {
+        if (item._id !== _id) {
+          return item;
+        }
+
+        const minOrderQuantity = Math.max(1, Number(item.minOrderQuantity) || 1);
+        return {
+          ...item,
+          count: Math.max(minOrderQuantity, item.count - 1)
+        };
+      })
     );
   };
 

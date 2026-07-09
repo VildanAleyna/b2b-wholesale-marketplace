@@ -53,6 +53,25 @@ const createProfileRoutes = ({ hashPassword }) => {
 
     router.get('/users/:id', authorizeSelfParam('id'), async (req, res) => {
         try {
+            const product = await Product.findOneAndUpdate(
+                {
+                    _id: productId,
+                    'wholesalers.usersID': req.params.id
+                },
+                {
+                    $set: {
+                        'wholesalers.$.price': numericPrice,
+                        'wholesalers.$.stockQuantity': numericStock,
+                        'wholesalers.$.minStockLevel': numericMinStock
+                    }
+                },
+                { new: true, runValidators: true }
+            );
+
+            if (!product) {
+                return res.status(404).json({ message: 'Bu toptanciya ait urun bulunamadi.' });
+            }
+
             const user = await User.findById(req.params.id);
             if (!user) {
                 return res.status(404).json({ message: 'Kullanici bulunamadi.' });
@@ -128,7 +147,14 @@ const createProfileRoutes = ({ hashPassword }) => {
                 return res.status(404).json({ message: 'Kullanici bulunamadi.' });
             }
 
-            const productDetails = await Product.find({ _id: { $in: (user.products || []).map(item => item.productID) } });
+            const isOwnProductList = req.auth?.userId === req.params.userId;
+            if (!user.wholesaler && !isOwnProductList) {
+                return res.status(403).json({ message: 'You are not authorized to access this product list.' });
+            }
+
+            const productDetails = await Product.find({
+                _id: { $in: (user.products || []).map(item => item.productID) }
+            });
             res.json(productDetails);
         } catch (error) {
             res.status(500).json({ message: 'Urunler alinamadi.', error });
