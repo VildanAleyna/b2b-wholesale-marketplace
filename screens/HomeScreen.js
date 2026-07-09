@@ -155,7 +155,7 @@ const HomeScreen = ({ navigation }) => {
     }
 
     try {
-      if (user.favorites.some(id => sameId(id, item._id))) {
+      if ((user.favorites || []).some(id => sameId(id, item._id))) {
         await removeFavorite(item._id, user, setUser); // Ürünü favorilerden çıkar
       } else {
         await addFavorite(item._id, user, setUser); // Ürünü favorilere ekle
@@ -194,7 +194,7 @@ const HomeScreen = ({ navigation }) => {
   const startIndex = currentPage * ITEMS_PER_PAGE;
   const endIndex = startIndex + ITEMS_PER_PAGE;
   const currentItems = filteredProducts.slice(startIndex, endIndex);
-  const totalPages = Math.ceil(filteredProducts.length / ITEMS_PER_PAGE);
+  const totalPages = Math.max(1, Math.ceil(filteredProducts.length / ITEMS_PER_PAGE));
 
   return (
     <SafeAreaView style={styles.container}>

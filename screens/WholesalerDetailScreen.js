@@ -102,7 +102,7 @@ const WholesalerDetailScreen = ({ route, navigation }) => {
     }
 
     try {
-      if (user.favorites.some(id => sameId(id, item._id))) {
+      if ((user.favorites || []).some(id => sameId(id, item._id))) {
         await removeFavorite(item._id, user, setUser);
         showToast(`${item.title} favorilerden çıkarıldı.`, 'info');
       } else {

@@ -22,7 +22,7 @@ import { getResponsiveContentWidth, isWeb } from '../constants/responsiveLayout'
 import AppToast from '../components/ui/AppToast';
 
 const CartScreen = ({ navigation }) => {
-  const { cart, removeFromCart, increaseCount, decreaseCount } = useContext(CartContext);
+  const { cart, removeFromCart, increaseCount, decreaseCount, clearCart } = useContext(CartContext);
   const { user, setUser } = useContext(AuthContext);
   const { width: windowWidth } = useWindowDimensions();
   const webContentWidth = getResponsiveContentWidth(windowWidth, 900);
@@ -204,7 +204,7 @@ const CartScreen = ({ navigation }) => {
         }
 
         // Sepeti temizle
-        cart.forEach(item => removeFromCart(item._id));
+        clearCart();
         showToast('Siparişiniz başarıyla oluşturuldu! 🚀');
         
         // Sipariş geçmişine git
