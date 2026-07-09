@@ -7,6 +7,15 @@ const { authenticateToken, authorizeSelfParam, authorizeWholesalerParam, hasWhol
 const createOrderRoutes = () => {
     const router = express.Router();
     router.use(authenticateToken);
+    const authorizeOrderStatusActor = (req, res, next) => {
+        const isOwnCustomerOrder = req.auth?.accountType === 'customer' && req.auth?.userId === req.params.customerId;
+        if (isOwnCustomerOrder || hasWholesalerRole(req.auth, ['warehouse'])) {
+            return next();
+        }
+
+        return res.status(403).json({ message: 'You are not authorized to update this order status.' });
+    };
+
     const rollbackStockReservations = async (reservations) => {
         await Promise.all(reservations.map(reservation => Product.updateOne(
             {
@@ -17,10 +26,21 @@ const createOrderRoutes = () => {
         )));
     };
 
+    const rollbackMirrorStockReservations = async (reservations) => {
+        await Promise.all(reservations.map(reservation => User.updateOne(
+            {
+                _id: reservation.wholesalerId,
+                'products.productID': reservation.productId
+            },
+            { $inc: { 'products.$.stockQuantity': reservation.count } }
+        )));
+    };
+
     router.post('/users/:userId/purchase', authorizeSelfParam('userId'), async (req, res) => {
         const { userId } = req.params;
         const { wholesalerId, paymentMethod, products } = req.body;
         let stockReservations = [];
+        let mirrorStockReservations = [];
 
         try {
             if (!wholesalerId || !mongoose.Types.ObjectId.isValid(wholesalerId)) {
@@ -167,15 +187,32 @@ const createOrderRoutes = () => {
             const totalSpent = user.orders.reduce((sum, order) => sum + order.totalAmount, 0);
             user.tier = totalSpent >= 100000 ? 'Gold' : totalSpent >= 20000 ? 'Silver' : 'Bronze';
 
+            for (const { product, orderRow } of orderProducts) {
+                const mirrorUpdate = await User.updateOne(
+                    { _id: wholesalerId, 'products.productID': product._id },
+                    { $inc: { 'products.$.stockQuantity': -orderRow.count } }
+                );
+
+                if (mirrorUpdate.modifiedCount !== 1) {
+                    throw new Error('Toptanci stok aynasi guncellenemedi.');
+                }
+
+                mirrorStockReservations.push({
+                    productId: product._id,
+                    wholesalerId: new mongoose.Types.ObjectId(wholesalerId),
+                    count: orderRow.count
+                });
+            }
+
             await user.save();
-            await Promise.all(orderProducts.map(({ product, wholesalerInfo }) => User.updateOne(
-                { _id: wholesalerId, 'products.productID': product._id },
-                { $set: { 'products.$.stockQuantity': wholesalerInfo.stockQuantity } }
-            )));
+
             res.status(201).json({ message: 'Siparis basariyla olusturuldu.', user: sanitizeUser(user) });
         } catch (error) {
             if (stockReservations.length > 0) {
                 await rollbackStockReservations(stockReservations);
+            }
+            if (mirrorStockReservations.length > 0) {
+                await rollbackMirrorStockReservations(mirrorStockReservations);
             }
             res.status(500).json({ message: 'Siparis islenirken hata olustu.', error: error.message });
         }
@@ -224,7 +261,7 @@ const createOrderRoutes = () => {
         }
     });
 
-    router.put('/customers/:customerId/orders/:orderId/status', async (req, res) => {
+    router.put('/customers/:customerId/orders/:orderId/status', authorizeOrderStatusActor, async (req, res) => {
         const { customerId, orderId } = req.params;
         const { status, trackingNumber } = req.body;
 
